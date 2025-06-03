@@ -1,0 +1,58 @@
+{
+    "tasks": [
+        {
+            "label": "clean",
+            "type": "shell",
+            "command": "Remove-Item -Path ${workspaceFolder}/build -Recurse -Force",
+            "options": { "cwd": "${workspaceFolder}" },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "cmake",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-B",
+                "build",
+                "-G",
+                "MinGW Makefiles"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "make",
+            "type": "shell",
+            "command": " mingw32-make.exe",
+            "options": { "cwd": "${workspaceFolder}/build" }, // 指定Make执行路径
+            "dependsOn": ["cmake"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "run",
+            "type": "process",
+            "command": "main.exe",
+            "options": { "cwd": "${workspaceFolder}/build" },
+            "dependsOn": ["make"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ],
+    "version": "2.0.0"
+}

@@ -1,0 +1,39 @@
+cmake_minimum_required(VERSION 3.30)
+project(tsharkwithui)
+
+# 添加调试信息
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+
+# 设置C++标准
+set( CMAKE_CXX_STANDARD 20 )
+
+# 设置编译器
+set( CMAKE_C_COMPILER "F:/mingw64/bin/gcc.exe" )
+
+# 设置C++编译器
+set( CMAKE_CXX_COMPILER "F:/mingw64/bin/g++.exe" )
+
+# 设置头文件搜索路径
+include_directories(${CMAKE_SOURCE_DIR}/)
+include_directories(${CMAKE_SOURCE_DIR}/utils)
+include_directories(${CMAKE_SOURCE_DIR}/third_library)
+#include_directories(${CMAKE_SOURCE_DIR}/third_library/loguru)
+
+#link_libraries(ws2_32)
+
+# 设置源文件
+add_executable(main
+
+                main.cpp
+                tshark_manager.cpp
+                tshark_database.cpp
+                utils/ip2region_util.cpp
+                utils/process_util.cpp
+                third_library/ip2region/xdb_search.cc
+                third_library/ip2region/xdb_bench.cc
+                third_library/loguru/loguru.cpp
+                third_library/sqlite3/sqlite3.c
+                )
+
+# 设置链接库
+target_link_libraries(main PRIVATE ws2_32)
