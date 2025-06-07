@@ -1,0 +1,7 @@
+tests
+tests/*
+build
+build/*
+httpserver.exe
+httpserver.cpp
+log.txt

@@ -1,5 +1,5 @@
 #include "tshark_manager.h"
-#include "misc_util.hpp"
+#include "utils/misc_util.hpp"
 
 #ifdef _WIN32
 // 使用宏来处理Windows和Unix的不同popen实现
@@ -703,4 +703,8 @@ void TsharkManager::processPacket(std::shared_ptr<Packet> packet) {
     storeLock.lock();
     packetsTobeStore.push_back(packet);
     storeLock.unlock();
+}
+
+void TsharkManager::queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packets) {
+    storage->queryPackets(ip, port, packets);
 }

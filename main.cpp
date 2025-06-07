@@ -1,12 +1,35 @@
-#include "tshark_manager.h"
-#include <filesystem> // C++17 文件系统库
-namespace fs = std::filesystem;
+#include <iostream>
+#include "loguru/loguru.hpp"
+#include "httplib/httplib.h"
 
-bool InitLog(int argc, char* argv[]) {
+#include "tshark_manager.h"
+#include "controller/packet_controller.hpp"
+
+std::shared_ptr<TsharkManager> g_ptrTsharkManager;
+
+void hello(const httplib::Request& req, httplib::Response& res) {
+    std::string name = req.get_param_value("name");
+    std::string hello = "Hello, " + name;
+    res.set_content(hello, "text/plain");
+}
+
+
+
+httplib::Server::HandlerResponse before_request(const httplib::Request& req, httplib::Response& res) {
+    LOG_F(INFO, "Request received for %s", req.path.c_str());
+    return httplib::Server::HandlerResponse::Unhandled;
+}
+
+void after_response(const httplib::Request& req, httplib::Response& res) {
+    LOG_F(INFO, "Received response with status %d", res.status);
+}
+
+void InitLog(int argc, char* argv[]) {
+    // 初始化 Loguru
     loguru::init(argc, argv);
-    loguru::add_file("log.txt", loguru::Append, loguru::Verbosity_MAX);
-    LOG_F(INFO, "Log file initialized successfully.");
-    return true;
+
+    // 设置日志文件路径
+    loguru::add_file("app.log", loguru::Append, loguru::Verbosity_MAX);
 }
 
 int main(int argc, char* argv[]) {
@@ -16,107 +39,23 @@ int main(int argc, char* argv[]) {
 
     InitLog(argc, argv);
 
-    TsharkManager tsharkManager("F:/cppProject/tsharkwithui");
+    g_ptrTsharkManager = std::make_shared<TsharkManager>("F:/cppProject/tsharkwithui");
+    g_ptrTsharkManager->analysisFile("F:/cppProject/tsharkwithui/build/capture.pcap");
 
-{   // 抓取指定网卡数据包
-    tsharkManager.startCapture("\\Device\\NPF_{BD18A809-4793-43BC-A0FD-788A3633A983}");
+    // 创建一个 HTTP 服务器对象
+    httplib::Server server;
 
-    // 主线程进入命令等待停止抓包
-    std::string input;
-    while (true) {
-        std::cout << "请输入q退出抓包: ";
-        std::cin >> input;
-        if (input == "q") {
-            tsharkManager.stopCapture();
-            break;
-        }
-    }
+    // 设置钩子函数
+    server.set_pre_routing_handler(before_request);
+    server.set_post_routing_handler(after_response);
 
-    // 打印所有捕获到的数据包信息
-    tsharkManager.printAllPackets();
-}
 
-// {// 监控网卡流量
-//     // 启动监控
-//     tsharkManager.startMonitorAdaptersFlowTrend();
+    // 创建Controller并注册路由
+    PacketController packetController(server, g_ptrTsharkManager);
+    packetController.registerRoute();
 
-//     // 睡眠10秒，等待监控网卡数据
-//     std::this_thread::sleep_for(std::chrono::seconds(10));
 
-//     // 读取监控到的数据
-//     std::map<std::string, std::map<long, long>> trendData;
-//     tsharkManager.getAdaptersFlowTrendData(trendData);
-
-//     // 停止监控
-//     tsharkManager.stopMonitorAdaptersFlowTrend();
-
-//     // 把获取到的数据打印输出
-//     rapidjson::Document resDoc;
-//     rapidjson::Document::AllocatorType& allocator = resDoc.GetAllocator();
-//     resDoc.SetObject();
-//     rapidjson::Value dataObject(rapidjson::kObjectType);
-//     for (const auto &adaptorItem : trendData) {
-//         rapidjson::Value adaptorDataList(rapidjson::kArrayType);
-//         for (const auto &timeItem : adaptorItem.second) {
-//             rapidjson::Value timeObj(rapidjson::kObjectType);
-//             timeObj.AddMember("time", (unsigned int)timeItem.first, allocator);
-//             timeObj.AddMember("bytes", (unsigned int)timeItem.second, allocator);
-//             adaptorDataList.PushBack(timeObj, allocator);
-//         }
-
-//         dataObject.AddMember(rapidjson::StringRef(adaptorItem.first.c_str()), adaptorDataList, allocator);
-//     }
-
-//     resDoc.AddMember("data", dataObject, allocator);
-
-//     // 序列化为 JSON 字符串
-//     rapidjson::StringBuffer buffer;
-//     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-//     resDoc.Accept(writer);
-
-//     LOG_F(INFO, "网卡流量监控数据: %s", buffer.GetString());
-// }
-
-{   // 分析指定的pcap文件
-    std::string pcapFilePath = "";
-    std::cout << "请输入要分析的pcap文件路径: ";
-    std::cin >> pcapFilePath;
-    if (tsharkManager.analysisFile(pcapFilePath)) {
-        LOG_F(INFO, "分析文件成功: %s", pcapFilePath.c_str());
-    } else {
-        LOG_F(ERROR, "分析文件失败: %s", pcapFilePath.c_str());
-    }
-
-    std::cout<<"请输入要获取详情的数据包编号（1-"<<tsharkManager.getAllPacketsCount()<<"）: ";
-
-    uint32_t frameNumber;
-    std::cin >> frameNumber;
-
-    std::string packetDetail;
-    if (tsharkManager.getPacketDetailInfo(frameNumber, packetDetail)) {
-        LOG_F(INFO, "数据包详情: %s", packetDetail.c_str());
-    } else {
-        LOG_F(ERROR, "获取数据包详情失败，可能是编号错误");
-    }
-
-    // 保存到本地文件（当前目录）
-    std::string filename = std::to_string(frameNumber) + ".json";
-
-    try {
-        std::ofstream outFile(filename);
-        if (outFile.is_open()) {
-            outFile << packetDetail;
-            outFile.close();
-            LOG_F(INFO, "数据包详情已保存到文件: %s", filename.c_str());
-        } else {
-            LOG_F(ERROR, "无法创建文件: %s", filename.c_str());
-        }
-    } catch (const std::exception& e) {
-        LOG_F(ERROR, "保存文件时出错: %s (错误: %s)", filename.c_str(), e.what());
-    } catch (...) {
-        LOG_F(ERROR, "未知错误发生在保存文件: %s", filename.c_str());
-    }
-}
-
+    // 启动服务器，监听 8080 端口
+    server.listen("127.0.0.1", 8080);
     return 0;
 }

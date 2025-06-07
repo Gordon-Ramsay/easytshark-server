@@ -1,8 +1,9 @@
 #pragma once
 #include "sqlite3/sqlite3.h"
 #include "tshark_datatype.h"
-#include "misc_util.hpp"
+#include "utils/misc_util.hpp"
 #include "loguru/loguru.hpp"
+#include "sql/packet_sql.hpp"
 
 
 // 数据库类
@@ -27,7 +28,7 @@ public:
 
     bool createPacketTable();
     bool storePackets(std::vector<std::shared_ptr<Packet>> &packets);
-    bool queryPackets(std::vector<std::shared_ptr<Packet>> &packetList);
+    bool queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packetList);
 private:
     sqlite3* db = nullptr; // SQLite 数据库连接
 };

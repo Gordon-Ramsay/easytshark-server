@@ -60,7 +60,10 @@ public:
 
     // 获取指定数据包的详情内容
     bool getPacketDetailInfo(uint32_t frameNumber, std::string &result);
+
     uint32_t getAllPacketsCount();
+
+    void queryPackets(std::string ip, uint16_t port, std::vector<std::shared_ptr<Packet>> &packets);
 private:
     // 解析每一行
     bool parseLine(std::string line, std::shared_ptr<Packet> packet);

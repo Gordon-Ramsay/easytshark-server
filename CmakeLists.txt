@@ -15,9 +15,7 @@ set( CMAKE_CXX_COMPILER "F:/mingw64/bin/g++.exe" )
 
 # 设置头文件搜索路径
 include_directories(${CMAKE_SOURCE_DIR}/)
-include_directories(${CMAKE_SOURCE_DIR}/utils)
 include_directories(${CMAKE_SOURCE_DIR}/third_library)
-#include_directories(${CMAKE_SOURCE_DIR}/third_library/loguru)
 
 #link_libraries(ws2_32)
 
