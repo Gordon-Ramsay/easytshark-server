@@ -2,7 +2,7 @@
 #include <map>
 
 
-class TranslateUtil {
+class TsharkTranslator {
 
 private:
     std::map<std::string, std::string> translationMap = {

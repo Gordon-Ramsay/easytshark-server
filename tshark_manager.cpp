@@ -10,12 +10,12 @@ TsharkManager::TsharkManager(std::string workDir) {
     this->tsharkPath = "F:/Wireshark/tshark.exe";
     this->editcapPath = "F:/Wireshark/editcap.exe";
     std::string xdbPath = workDir + "/third_library/ip2region/ip2region.xdb";
-    ip2RegionUtil.init(xdbPath);
+    IP2RegionUtil::init(xdbPath);
     storage = std::make_shared<TsharkDatabase>("t_packets");
 }
 
 TsharkManager::~TsharkManager() {
-    ip2RegionUtil.uninit();
+    IP2RegionUtil::uninit();
 }
 
 bool TsharkManager::analysisFile(std::string filePath) {
@@ -641,10 +641,6 @@ bool TsharkManager::getPacketDetailInfo(uint32_t frameNumber, std::string &resul
     return true;
 }
 
-uint32_t TsharkManager::getAllPacketsCount() {
-    return allPackets.size();
-}
-
 // 负责存储数据包和会话信息的存储线程函数
 void TsharkManager::storageThreadEntry() {
 
@@ -706,5 +702,5 @@ void TsharkManager::processPacket(std::shared_ptr<Packet> packet) {
 }
 
 void TsharkManager::queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packets) {
-    storage->queryPackets(ip, port, packets);
+    storage->queryPackets(queryConditon, packets);
 }

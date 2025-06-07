@@ -1,7 +1,7 @@
 #include <map>
 #include <string>
 
-#define ERROR_SUCCESS           0
+#define ERROR_STATUS_SUCCESS    0
 #define ERROR_PARAMETER_WRONG   1001
 #define ERROR_INTERNAL_WRONG    1002
 #define ERROR_DATABASE_WRONG    1003
@@ -27,7 +27,7 @@ private:
 };
 
 std::map<int, std::string> TsharkError::ERROR_MSG_MAP = {
-        {ERROR_SUCCESS, "操作成功"},
+        {ERROR_STATUS_SUCCESS, "操作成功"},
         {ERROR_PARAMETER_WRONG, "参数错误"},
         {ERROR_INTERNAL_WRONG, "内部错误"},
         {ERROR_DATABASE_WRONG, "数据库错误"},

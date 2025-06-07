@@ -64,8 +64,8 @@ protected:
         resDoc.SetObject();
 
         // 添加 "code" 和 "msg"
-        resDoc.AddMember("code", ERROR_SUCCESS, allocator);
-        resDoc.AddMember("msg", rapidjson::Value(TsharkError::getErrorMsg(ERROR_SUCCESS).c_str(), allocator), allocator);
+        resDoc.AddMember("code", ERROR_STATUS_SUCCESS, allocator);
+        resDoc.AddMember("msg", rapidjson::Value(TsharkError::getErrorMsg(ERROR_STATUS_SUCCESS).c_str(), allocator), allocator);
 
         // 构建 "data" 数组
         rapidjson::Value dataArray(rapidjson::kArrayType);
@@ -94,7 +94,7 @@ protected:
         rapidjson::Document::AllocatorType& allocator = resDoc.GetAllocator();
         resDoc.SetObject();
         resDoc.AddMember("code", 0, allocator);
-        resDoc.AddMember("msg", rapidjson::Value(TsharkError::getErrorMsg(ERROR_SUCCESS).c_str(), allocator), allocator);
+        resDoc.AddMember("msg", rapidjson::Value(TsharkError::getErrorMsg(ERROR_STATUS_SUCCESS).c_str(), allocator), allocator);
 
         rapidjson::StringBuffer buffer;
         rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
