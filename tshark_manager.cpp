@@ -20,6 +20,13 @@ TsharkManager::~TsharkManager() {
 
 bool TsharkManager::analysisFile(std::string filePath) {
 
+    // 统一转换为标准的pcap格式
+    currentFilePath = MiscUtil::getPcapNameByCurrentTimestamp();
+    if (!convertToPcap(filePath, currentFilePath)) {
+        LOG_F(ERROR, "convert to pcap failed");
+        return false;
+    }
+
     std::vector<std::string> tsharkArgs = {
             tsharkPath,
             "-r", filePath,
@@ -703,4 +710,22 @@ void TsharkManager::processPacket(std::shared_ptr<Packet> packet) {
 
 void TsharkManager::queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packets) {
     storage->queryPackets(queryConditon, packets);
+}
+
+// 将数据包格式转换为旧的pcap格式
+bool TsharkManager::convertToPcap(const std::string& inputFile, const std::string& outputFile) {
+    // 构建 editcap 命令，将 pcapng 转换为 pcap 格式
+    std::string command = editcapPath + " -F pcap " + inputFile + " " + outputFile;
+    if (!ProcessUtil::Exec(command)) {
+        LOG_F(ERROR, "Failed to convert to pcap format, command: %s", command.c_str());
+        return false;
+    }
+
+    LOG_F(INFO, "Successfully converted %s to %s in pcap format", inputFile.c_str(), outputFile.c_str());
+    return true;
+}
+
+WORK_STATUS TsharkManager::getWorkStatus() {
+    std::unique_lock<std::recursive_mutex> lock(workStatusLock);
+    return workStatus;
 }

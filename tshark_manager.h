@@ -27,11 +27,20 @@
 #include <thread>
 #include <mutex>
 
+enum WORK_STATUS {
+    STATUS_IDLE = 0,                    // 空闲状态
+    STATUS_ANALYSIS_FILE = 1,           // 离线分析文件中
+    STATUS_CAPTURING = 2,               // 在线采集抓包中
+    STATUS_MONITORING = 3               // 监控网卡流量中
+};
+
 class TsharkManager {
 
 public:
     TsharkManager(std::string workDir);
     ~TsharkManager();
+
+    WORK_STATUS getWorkStatus();
 
     // 分析数据包文件
     bool analysisFile(std::string filePath);
@@ -89,6 +98,10 @@ private:
 
 private:
 
+    // 工作状态
+    WORK_STATUS workStatus = STATUS_IDLE;
+    std::recursive_mutex workStatusLock;
+
     std::string tsharkPath;
     std::string editcapPath;
 
@@ -123,6 +136,8 @@ private:
     // 字段翻译工具
     TsharkTranslator translator;
 
+    // 将数据包格式转换为旧的pcap格式
+    bool convertToPcap(const std::string& inputFile, const std::string& outputFile);
 
     // -----------------------------以下与网卡流量趋势监控有关-----------------------------------
     // 网卡监控相关的信息

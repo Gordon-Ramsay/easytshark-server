@@ -1,9 +1,17 @@
 #pragma once
-#include <random>
+#ifndef MISC_UTIL_HPP
+#define MISC_UTIL_HPP
+
 #include <string>
-#include <iostream>
 #include <fstream>
 #include <sstream>
+#include <ctime>
+#include <random>
+#include <iostream>
+#include <sys/stat.h>
+#include <set>
+#include <chrono>
+#include <codecvt>
 #include <rapidxml/rapidxml.hpp>
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
@@ -12,6 +20,26 @@
 
 using namespace rapidxml;
 using namespace rapidjson;
+
+#ifdef _WIN32
+#include <windows.h>
+#include <direct.h>
+#include <dbghelp.h>
+#pragma comment(lib, "dbghelp.lib")
+#define make_dir(path) _mkdir(path.c_str())
+#define STAT_STRUCT _stat
+#define STAT_FUNC _stat
+#else
+#include <unistd.h>
+#include <iostream>
+
+#define STAT_STRUCT stat
+#define STAT_FUNC stat
+#define make_dir(path) mkdir(path.c_str(), 0755)
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 class MiscUtil {
 public:
@@ -32,8 +60,20 @@ public:
         return randomString;
     }
 
+    // 获取数据存储目录
     static std::string getDefaultDataDir() {
-        return "./";
+        static std::string dir = "";
+        if (!dir.empty()) {
+            return dir;
+        }
+#ifdef _WIN32
+        dir = std::string(std::getenv("APPDATA")) + "\\easytshark\\";
+#else
+        dir = std::string(std::getenv("HOME")) + "/easytshark/";
+#endif
+
+        createDirectory(dir);
+        return dir;
     }
 
     // 将XML转为JSON格式
@@ -64,6 +104,53 @@ public:
             outJsonDoc.AddMember(Value(root->name(), allocator).Move(), root_json, allocator);
         }
         return true;
+    }
+
+    static bool fileExists(const std::string& filename) {
+        std::ifstream file(filename);
+        return file.good();
+    }
+
+    // 通过当前时间戳获取一个pcap文件名
+    static std::string getPcapNameByCurrentTimestamp(bool isFullPath=true) {
+        // 获取当前时间
+        std::time_t now = std::time(nullptr);
+        std::tm* localTime = std::localtime(&now);
+
+        // 格式化文件名
+        char buffer[64];
+        std::strftime(buffer, sizeof(buffer), "easytshark_%Y-%m-%d_%H-%M-%S.pcap", localTime);
+
+        return isFullPath ? getDefaultDataDir() + std::string(buffer) : std::string(buffer);
+    }
+
+    static bool directoryExists(const std::string& path) {
+        struct stat info;
+        return (stat(path.c_str(), &info) == 0 && (info.st_mode & S_IFDIR));
+    }
+
+    static bool createDirectory(const std::string& path) {
+        // 如果目录已存在，则直接返回 true
+        if (directoryExists(path)) {
+            return true;
+        }
+
+        // 尝试创建父目录
+        size_t pos = path.find_last_of("/\\");
+        if (pos != std::string::npos) {
+            std::string parentDir = path.substr(0, pos);
+            if (!createDirectory(parentDir)) {
+                return false;
+            }
+        }
+
+        // 创建当前目录
+        if (make_dir(path) == 0) {
+            return true;
+        } else {
+            perror("Error creating directory");
+            return false;
+        }
     }
 
 private:
@@ -106,3 +193,5 @@ private:
         }
     }
 };
+
+#endif //MISC_UTIL_HPP
