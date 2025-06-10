@@ -1,8 +1,6 @@
 #ifndef TSHARK_SERVER_PACKET_CONTROLLER_HPP
 #define TSHARK_SERVER_PACKET_CONTROLLER_HPP
 
-#include <memory>
-
 #include "controller/base_controller.hpp"
 
 

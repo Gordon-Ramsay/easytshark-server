@@ -160,6 +160,30 @@ protected:
 
         return true;
     }
+
+    // 成功响应，返回JSON内容
+    void sendJsonResponse(httplib::Response& res, rapidjson::Document& dataDoc) {
+        /**
+         * 返回数据格式：
+         * {
+         *     "code": 0,
+         *     "msg": "操作成功",
+         *     "data" [] / {}
+         * }
+         */
+        rapidjson::Document resDoc;
+        rapidjson::Document::AllocatorType& allocator = resDoc.GetAllocator();
+        resDoc.SetObject();
+        resDoc.AddMember("code", ERROR_STATUS_SUCCESS, allocator);
+        resDoc.AddMember("msg", rapidjson::Value(TsharkError::getErrorMsg(ERROR_STATUS_SUCCESS).c_str(), allocator), allocator);
+        resDoc.AddMember("data", dataDoc, allocator);
+
+        rapidjson::StringBuffer buffer;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+        resDoc.Accept(writer);
+
+        res.set_content(buffer.GetString(), "application/json");
+    }
 };
 
 

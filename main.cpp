@@ -4,6 +4,7 @@
 
 #include "tshark_manager.h"
 #include "controller/packet_controller.hpp"
+#include "controller/adaptor_controller.hpp"
 
 std::shared_ptr<TsharkManager> g_ptrTsharkManager;
 
@@ -54,6 +55,8 @@ int main(int argc, char* argv[]) {
     PacketController packetController(server, g_ptrTsharkManager);
     packetController.registerRoute();
 
+    AdaptorController adaptorController(server, g_ptrTsharkManager);
+    adaptorController.registerRoute();
 
     // 启动服务器，监听 8080 端口
     server.listen("127.0.0.1", 8080);
