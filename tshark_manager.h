@@ -42,6 +42,8 @@ public:
 
     WORK_STATUS getWorkStatus();
 
+    void reset();
+
     // 分析数据包文件
     bool analysisFile(std::string filePath);
 
@@ -75,6 +77,7 @@ public:
     // 获取数据包详细信息
     bool getPacketDetailInfo(uint32_t frameNumber, std::string& result);
 
+    void printAllSessions();
     
     // -----------------------------数据查询相关接口-----------------------------------
     void queryPackets(QueryCondition &queryConditon, std::vector<std::shared_ptr<Packet>> &packets);
@@ -95,6 +98,9 @@ private:
 
     // 负责存储数据包的线程函数
     void storageThreadEntry();
+
+    // 将数据包格式转换为旧的pcap格式
+    bool convertToPcap(const std::string& inputFile, const std::string& outputFile);
 
 private:
 
@@ -136,8 +142,8 @@ private:
     // 字段翻译工具
     TsharkTranslator translator;
 
-    // 将数据包格式转换为旧的pcap格式
-    bool convertToPcap(const std::string& inputFile, const std::string& outputFile);
+    // 会话表
+    std::unordered_map<FiveTuple, std::shared_ptr<Session>, FiveTupleHash> sessionMap;
 
     // -----------------------------以下与网卡流量趋势监控有关-----------------------------------
     // 网卡监控相关的信息

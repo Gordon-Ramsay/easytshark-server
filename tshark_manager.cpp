@@ -6,12 +6,26 @@
 #define popen _popen
 #define pclose _pclose
 #endif
+
+std::map<uint8_t, std::string> ipProtoMap = {
+    {1, "ICMP"},
+    {2, "IGMP"},
+    {6, "TCP"},
+    {17, "UDP"},
+    {47, "GRE"},
+    {50, "ESP"},
+    {51, "AH"},
+    {88, "EIGRP"},
+    {89, "OSPF"},
+    {132, "SCTP"}
+};
+
 TsharkManager::TsharkManager(std::string workDir) {
     this->tsharkPath = "F:/Wireshark/tshark.exe";
     this->editcapPath = "F:/Wireshark/editcap.exe";
     std::string xdbPath = workDir + "/third_library/ip2region/ip2region.xdb";
     IP2RegionUtil::init(xdbPath);
-    storage = std::make_shared<TsharkDatabase>("t_packets");
+    storage = std::make_shared<TsharkDatabase>("mytshark.db");
 }
 
 TsharkManager::~TsharkManager() {
@@ -110,9 +124,13 @@ bool TsharkManager::parseLine(std::string line, std::shared_ptr<Packet> packet) 
     std::string field;
     std::vector<std::string> fields;
 
-    while (std::getline(ss, field, '\t')) {  // 假设字段用 tab 分隔
-        fields.push_back(field);
+    size_t start = 0, end;
+    while ((end = line.find('\t', start)) != std::string::npos) {
+        fields.push_back(line.substr(start, end - start));
+        start = end + 1;
     }
+    fields.push_back(line.substr(start)); // 添加最后一个子串
+
 
     // 字段顺序：
     // 0: frame.number
@@ -125,14 +143,16 @@ bool TsharkManager::parseLine(std::string line, std::shared_ptr<Packet> packet) 
     // 7: ipv6.src
     // 8: ip.dst
     // 9: ipv6.dst
-    // 10: tcp.srcport
-    // 11: udp.srcport
-    // 12: tcp.dstport
-    // 13: udp.dstport
-    // 14: _ws.col.Protocol
-    // 15: _ws.col.Info
+    // 10: ip.proto
+    // 11: ipv6.nxt
+    // 12: tcp.srcport
+    // 13: udp.srcport
+    // 14: tcp.dstport
+    // 15: udp.dstport
+    // 16: _ws.col.Protocol
+    // 17: _ws.col.Info
 
-    if (fields.size() >= 16) {
+    if (fields.size() >= 18) {
         packet->frame_number = std::stoi(fields[0]);
         packet->time = std::stod(fields[1]);
         packet->len = std::stoi(fields[2]);
@@ -141,18 +161,27 @@ bool TsharkManager::parseLine(std::string line, std::shared_ptr<Packet> packet) 
         packet->dst_mac = fields[5];
         packet->src_ip = fields[6].empty() ? fields[7] : fields[6];
         packet->dst_ip = fields[8].empty() ? fields[9] : fields[8];
+        
         if (!fields[10].empty() || !fields[11].empty()) {
-            packet->src_port = std::stoi(fields[10].empty() ? fields[11] : fields[10]);
+            uint8_t transProtoNumber = std::stoi(fields[10].empty() ? fields[11] : fields[10]);
+            if (ipProtoMap.find(transProtoNumber) != ipProtoMap.end()) {
+                packet->trans_proto = ipProtoMap[transProtoNumber];
+            }
         }
 
         if (!fields[12].empty() || !fields[13].empty()) {
-            packet->dst_port = std::stoi(fields[12].empty() ? fields[13] : fields[12]);
+            packet->src_port = std::stoi(fields[12].empty() ? fields[13] : fields[12]);
         }
-        packet->protocol = fields[14];
-        packet->info = fields[15];
+
+        if (!fields[14].empty() || !fields[15].empty()) {
+            packet->dst_port = std::stoi(fields[14].empty() ? fields[15] : fields[14]);
+        }
+        packet->protocol = fields[16];
+        packet->info = fields[17];
 
         return true;
-    } else {
+    }
+    else {
         return false;
     }
 }
@@ -374,6 +403,8 @@ void TsharkManager::captureWorkThreadEntry(std::string adapterName) {
             "-e", "udp.dstport",
             "-e", "_ws.col.Protocol",
             "-e", "_ws.col.Info",
+            "-e", "ip.proto",
+            "-e", "ipv6.nxt",
     };
 
     std::string command;
@@ -706,6 +737,59 @@ void TsharkManager::processPacket(std::shared_ptr<Packet> packet) {
     storeLock.lock();
     packetsTobeStore.push_back(packet);
     storeLock.unlock();
+
+    if (packet->trans_proto == "TCP" || packet->trans_proto == "UDP") {
+
+        // 创建五元组
+        FiveTuple tuple{ packet->src_ip, packet->dst_ip, packet->src_port, packet->dst_port, packet->trans_proto };
+
+        // 将数据包加入到相应会话的列表中，并更新统计信息
+        std::shared_ptr<Session> session;
+        if (sessionMap.find(tuple) == sessionMap.end()) {
+            // 新的会话，初始化会话信息
+            session = std::make_shared<Session>();
+            session->session_id = sessionMap.size() + 1;        // 通过序号来分配ID
+            session->ip1 = packet->src_ip;
+            session->ip2 = packet->dst_ip;
+            session->ip1_location = packet->src_location;
+            session->ip2_location = packet->dst_location;
+            session->ip1_port = packet->src_port;
+            session->ip2_port = packet->dst_port;
+            session->start_time = packet->time;
+            session->end_time = packet->time;
+            session->trans_proto = packet->trans_proto;
+            if (packet->protocol != "TCP" && packet->protocol != "UDP") {
+                session->app_proto = packet->protocol;
+            }
+
+            sessionMap.insert(std::make_pair(tuple, session));
+        }
+        else {
+            // 旧的会话，更新会话信息
+            session = sessionMap[tuple];
+            session->end_time = packet->time;
+            if (packet->protocol != "TCP" && packet->protocol != "UDP") {
+                session->app_proto = packet->protocol;
+            }
+        }
+
+        // 共同的字段更新
+        {
+            session->packet_count++;
+            session->total_bytes += packet->len;
+            packet->belong_session_id = session->session_id;
+        }
+
+        // 统计双方的交互数据
+        if (session->ip1 == packet->src_ip) {
+            session->ip1_send_packets_count++;
+            session->ip1_send_bytes_count += packet->len;
+        }
+        else {
+            session->ip2_send_packets_count++;
+            session->ip2_send_bytes_count += packet->len;
+        }
+    }
 }
 
 void TsharkManager::queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packets) {
@@ -725,7 +809,64 @@ bool TsharkManager::convertToPcap(const std::string& inputFile, const std::strin
     return true;
 }
 
+void TsharkManager::reset() {
+
+    LOG_F(INFO, "reset called");
+
+    // 如果还在抓包或者分析文件，将其停止
+    if (workStatus == STATUS_CAPTURING) {
+        stopCapture();
+    }
+    else if (workStatus == STATUS_MONITORING) {
+        stopMonitorAdaptersFlowTrend();
+    }
+
+    workStatus = STATUS_IDLE;
+    captureTsharkPid = 0;
+    stopFlag = true;
+
+
+    allPackets.clear();
+    packetsTobeStore.clear();
+
+
+    if (captureWorkThread) {
+        captureWorkThread->join();
+        captureWorkThread.reset();
+    }
+    if (storageThread) {
+        storageThread->join();
+        storageThread.reset();
+    }
+
+    // 删除之前的数据，重新开始
+    remove(currentFilePath.c_str());
+    currentFilePath = "";
+
+    // 重置数据库
+    storage.reset();    // 析构旧的对象，关闭旧数据库文件的占用
+    std::string dbFullPath = this->workDir + "/mytshark.db";
+    remove(dbFullPath.c_str());
+    storage = std::make_shared<TsharkDatabase>(dbFullPath);
+}
+
 WORK_STATUS TsharkManager::getWorkStatus() {
     std::unique_lock<std::recursive_mutex> lock(workStatusLock);
     return workStatus;
+}
+
+// 打印所有会话的信息
+void TsharkManager::printAllSessions() {
+    for (auto& item : sessionMap) {
+        rapidjson::Document doc(kObjectType);
+        item.second->toJsonObj(doc, doc.GetAllocator());
+
+        // 序列化为 JSON 字符串
+        rapidjson::StringBuffer buffer;
+        rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+        doc.Accept(writer);
+
+        // 打印JSON输出
+        std::cout << buffer.GetString() << std::endl;
+    }
 }
