@@ -35,6 +35,8 @@ TsharkManager::~TsharkManager() {
 
 bool TsharkManager::analysisFile(std::string filePath) {
 
+    reset();
+
     // 统一转换为标准的pcap格式
     currentFilePath = MiscUtil::getPcapNameByCurrentTimestamp();
     if (!convertToPcap(filePath, currentFilePath)) {
@@ -72,21 +74,24 @@ bool TsharkManager::analysisFile(std::string filePath) {
         command += " ";
     }
 
-    FILE* pipe = _popen(command.c_str(), "r");
+    FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) {
         std::cerr << "Failed to run tshark command!" << std::endl;
         return false;
     }
 
-    char buffer[4096];
+    // 先启动存储线程
+    stopFlag = false;
+    storageThread = std::make_shared<std::thread>(&TsharkManager::storageThreadEntry, this);
 
     // 当前处理的报文在文件中的偏移，第一个报文的偏移就是全局文件头24(也就是sizeof(PcapHeader))字节
     uint32_t file_offset = sizeof(PcapHeader);
+    char buffer[4096];
     while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
         std::shared_ptr<Packet> packet = std::make_shared<Packet>();
         if (!parseLine(buffer, packet)) {
             LOG_F(ERROR, buffer);
-            assert(false);
+            assert(false); // 增加错误断言，及时发现错误
         }
 
         // 计算当前报文的偏移，然后记录在Packet对象中
@@ -99,22 +104,20 @@ bool TsharkManager::analysisFile(std::string filePath) {
         packet->src_location = IP2RegionUtil::getIpLocation(packet->src_ip);
         packet->dst_location = IP2RegionUtil::getIpLocation(packet->dst_ip);
 
-        // 将分析的数据包插入保存起来
-        allPackets.insert(std::make_pair<>(packet->frame_number, packet));
+        processPacket(packet);
     }
-
-    // 处理完所有数据包后，可以在这里进行进一步的操作，比如存储到数据库
-    std::vector<std::shared_ptr<Packet>> packetList;
-    for(auto& packet : allPackets){
-        packetList.push_back(packet.second);
-    }
-
-    storage->storePackets(packetList);
 
     pclose(pipe);
 
+    // 等待存储线程退出
+    stopFlag = true;
+    storageThread->join();
+    storageThread.reset();
+
     // 记录当前分析的文件路径
     currentFilePath = filePath;
+
+    LOG_F(INFO, "分析完成，数据包总数：%zu", allPackets.size());
 
     return true;
 }
