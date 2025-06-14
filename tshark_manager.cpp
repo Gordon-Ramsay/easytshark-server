@@ -797,7 +797,7 @@ void TsharkManager::processPacket(std::shared_ptr<Packet> packet) {
 
         storeLock.lock();
         // 将数据包加入到会话中
-        sessionSetTobeStore.push_back(packet);
+        sessionSetTobeStore.insert(session);
         storeLock.unlock();
     }
 }
