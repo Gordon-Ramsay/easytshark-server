@@ -794,6 +794,11 @@ void TsharkManager::processPacket(std::shared_ptr<Packet> packet) {
             session->ip2_send_packets_count++;
             session->ip2_send_bytes_count += packet->len;
         }
+
+        storeLock.lock();
+        // 将数据包加入到会话中
+        sessionSetTobeStore.push_back(packet);
+        storeLock.unlock();
     }
 }
 
@@ -837,6 +842,7 @@ void TsharkManager::reset() {
 
     allPackets.clear();
     packetsTobeStore.clear();
+    sessionSetTobeStore.clear();
 
 
     if (captureWorkThread) {
