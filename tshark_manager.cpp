@@ -44,7 +44,7 @@ bool TsharkManager::analysisFile(std::string filePath) {
 
     std::vector<std::string> tsharkArgs = {
             tsharkPath,
-            "-r", filePath,
+            "-r", currentFilePath.c_str(),
             "-T", "fields",
             "-e", "frame.number",
             "-e", "frame.time_epoch",
@@ -56,6 +56,8 @@ bool TsharkManager::analysisFile(std::string filePath) {
             "-e", "ipv6.src",
             "-e", "ip.dst",
             "-e", "ipv6.dst",
+            "-e", "ip.proto",
+            "-e", "ipv6.nxt",
             "-e", "tcp.srcport",
             "-e", "udp.srcport",
             "-e", "tcp.dstport",
