@@ -129,3 +129,142 @@ bool TsharkDatabase::queryPackets(QueryCondition& queryConditon, std::vector<std
 
     return true;
 }
+
+// 创建会话表
+void TsharkDatabase::createSessionTable() {
+    // 检查表是否存在，若不存在则创建
+    std::string createTableSQL = R"(
+        CREATE TABLE IF NOT EXISTS t_sessions (
+            session_id INTEGER PRIMARY KEY,
+            ip1 TEXT,
+            ip1_port INTEGER,
+            ip1_location TEXT,
+            ip2 TEXT,
+            ip2_port INTEGER,
+            ip2_location TEXT,
+            trans_proto TEXT,
+            app_proto TEXT,
+            start_time REAL,
+            end_time REAL,
+            ip1_send_packets_count INTEGER,
+            ip1_send_bytes_count INTEGER,
+            ip2_send_packets_count INTEGER,
+            ip2_send_bytes_count INTEGER,
+            packet_count INTEGER,
+            total_bytes INTEGER
+        );
+    )";
+
+    if (sqlite3_exec(db, createTableSQL.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to create table t_sessions");
+    }
+
+    // 清空表数据
+    std::string clearTableSQL = "DELETE FROM t_sessions;";
+    if (sqlite3_exec(db, clearTableSQL.c_str(), nullptr, nullptr, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to clear table t_sessions");
+    }
+}
+
+// 存储会话信息到表中
+void TsharkDatabase::storeAndUpdateSessions(std::unordered_set<std::shared_ptr<Session>>& sessions) {
+
+    // 开启事务
+    sqlite3_exec(db, "BEGIN TRANSACTION;", nullptr, nullptr, nullptr);
+
+    // SQL UPSERT 语句
+    std::string upsertSQL = R"(
+        INSERT INTO t_sessions (
+            session_id, ip1, ip1_location, ip1_port, ip2, ip2_location, ip2_port,
+            trans_proto, app_proto, start_time, end_time,
+            ip1_send_packets_count, ip1_send_bytes_count, ip2_send_packets_count, ip2_send_bytes_count,
+            packet_count, total_bytes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(session_id) DO UPDATE SET
+            trans_proto = excluded.trans_proto,
+            app_proto = excluded.app_proto,
+            start_time = excluded.start_time,
+            end_time = excluded.end_time,
+            ip1_send_packets_count = excluded.ip1_send_packets_count,
+            ip1_send_bytes_count = excluded.ip1_send_bytes_count,
+            ip2_send_packets_count = excluded.ip2_send_packets_count,
+            ip2_send_bytes_count = excluded.ip2_send_bytes_count,
+            packet_count = excluded.packet_count,
+            total_bytes = excluded.total_bytes
+    )";
+
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(db, upsertSQL.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare UPSERT statement");
+    }
+
+    // 遍历列表并插入或更新数据
+    for (const auto& session : sessions) {
+        sqlite3_bind_int(stmt, 1, session->session_id);
+        sqlite3_bind_text(stmt, 2, session->ip1.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 3, session->ip1_location.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(stmt, 4, session->ip1_port);
+        sqlite3_bind_text(stmt, 5, session->ip2.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 6, session->ip2_location.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(stmt, 7, session->ip2_port);
+        sqlite3_bind_text(stmt, 8, session->trans_proto.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 9, session->app_proto.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_double(stmt, 10, session->start_time);
+        sqlite3_bind_double(stmt, 11, session->end_time);
+        sqlite3_bind_int(stmt, 12, session->ip1_send_packets_count);
+        sqlite3_bind_int(stmt, 13, session->ip1_send_bytes_count);
+        sqlite3_bind_int(stmt, 14, session->ip2_send_packets_count);
+        sqlite3_bind_int(stmt, 15, session->ip2_send_bytes_count);
+        sqlite3_bind_int(stmt, 16, session->packet_count);
+        sqlite3_bind_int(stmt, 17, session->total_bytes);
+
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            throw std::runtime_error("Failed to execute UPSERT statement");
+        }
+
+        sqlite3_reset(stmt); // 重置语句以便下一次绑定
+    }
+
+    // 结束事务
+    sqlite3_exec(db, "COMMIT;", nullptr, nullptr, nullptr);
+
+    // 释放语句
+    sqlite3_finalize(stmt);
+}
+
+// 从数据库查询会话分页数据
+bool TsharkDatabase::querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList) {
+    sqlite3_stmt* stmt = nullptr;
+    std::string sql = SessionSQL::buildSessionQuerySQL(condition);
+
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        std::cout << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return false;
+    }
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        std::shared_ptr<Session> session = std::make_shared<Session>();
+        session->session_id = sqlite3_column_int(stmt, 0);
+        session->ip1 = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        session->ip1_port = sqlite3_column_int(stmt, 2);
+        session->ip1_location = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+        session->ip2 = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+        session->ip2_port = sqlite3_column_int(stmt, 5);
+        session->ip2_location = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+        session->trans_proto = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
+        session->app_proto = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 8));
+        session->start_time = sqlite3_column_double(stmt, 9);
+        session->end_time = sqlite3_column_double(stmt, 10);
+        session->ip1_send_packets_count = sqlite3_column_int(stmt, 11);
+        session->ip1_send_bytes_count = sqlite3_column_int(stmt, 12);
+        session->ip2_send_packets_count = sqlite3_column_int(stmt, 13);
+        session->ip2_send_bytes_count = sqlite3_column_int(stmt, 14);
+        session->packet_count = sqlite3_column_int(stmt, 15);
+        session->total_bytes = sqlite3_column_int(stmt, 16);
+
+        sessionList.push_back(session);
+    }
+
+    sqlite3_finalize(stmt);
+    return true;
+}

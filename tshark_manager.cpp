@@ -21,11 +21,12 @@ std::map<uint8_t, std::string> ipProtoMap = {
 };
 
 TsharkManager::TsharkManager(std::string workDir) {
+    this->workDir = workDir;
     this->tsharkPath = "F:/Wireshark/tshark.exe";
     this->editcapPath = "F:/Wireshark/editcap.exe";
     std::string xdbPath = workDir + "/third_library/ip2region/ip2region.xdb";
+    storage = std::make_shared<TsharkDatabase>(workDir + "/mytshark.db");
     IP2RegionUtil::init(xdbPath);
-    storage = std::make_shared<TsharkDatabase>("mytshark.db");
 }
 
 TsharkManager::~TsharkManager() {
@@ -682,18 +683,6 @@ bool TsharkManager::getPacketDetailInfo(uint32_t frameNumber, std::string &resul
 // 负责存储数据包和会话信息的存储线程函数
 void TsharkManager::storageThreadEntry() {
 
-    // auto storageWork = [this]() {
-    //     storeLock.lock();
-
-    //     // 检查数据包列表是否有新的数据可供存储
-    //     if (!packetsTobeStore.empty()) {
-    //         storage->storePackets(packetsTobeStore);
-    //         packetsTobeStore.clear();
-    //     }
-
-    //     storeLock.unlock();
-    // };
-
     // 改进版（异常安全+性能优化）
     auto storageWork = [this]() {
         // 使用 RAII 锁自动管理（异常安全）
@@ -702,6 +691,9 @@ void TsharkManager::storageThreadEntry() {
         // 拷贝数据快速释放锁
         auto packetsToProcess = std::move(packetsTobeStore);
         packetsTobeStore.clear(); // 清空原队列
+
+        auto sessionsToProcess = std::move(sessionSetTobeStore);
+        sessionSetTobeStore.clear(); // 清空原会话映射
         
         // 释放锁后执行耗时操作
         storeLock.unlock(); 
@@ -709,11 +701,19 @@ void TsharkManager::storageThreadEntry() {
         if (!packetsToProcess.empty()) {
             storage->storePackets(packetsToProcess);
         }
+
+        if (!sessionsToProcess.empty()) {
+            storage->storeAndUpdateSessions(sessionsToProcess);
+        }
         
         // 可选：添加流控机制避免堆积
         if (packetsTobeStore.size() > MAX_SID_SIZE) {
             LOG_F(WARNING,"待存储队列过长: %zu", packetsTobeStore.size());
         }
+
+        if (sessionSetTobeStore.size() > MAX_SID_SIZE) {
+            LOG_F(WARNING,"待存储会话队列过长: %zu", sessionSetTobeStore.size());
+        }  
     };
 
     // 只要停止标记没有点亮，存储线程就要一直存在
@@ -794,6 +794,10 @@ void TsharkManager::processPacket(std::shared_ptr<Packet> packet) {
 
 void TsharkManager::queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packets) {
     storage->queryPackets(queryConditon, packets);
+}
+
+void TsharkManager::querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList) {
+    storage->querySessions(condition, sessionList);
 }
 
 // 将数据包格式转换为旧的pcap格式

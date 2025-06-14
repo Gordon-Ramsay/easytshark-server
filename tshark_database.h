@@ -4,6 +4,8 @@
 #include "utils/misc_util.hpp"
 #include "loguru/loguru.hpp"
 #include "sql/packet_sql.hpp"
+#include "sql/session_sql.hpp"
+#include <unordered_set>
 
 
 // 数据库类
@@ -11,12 +13,17 @@ class TsharkDatabase {
 public:
     // 构造函数，初始化数据库并创建表
     TsharkDatabase(const std::string &dbName) {
+
+        // 删除之前的旧文件（如果有的话）
+        remove(dbName.c_str());
+
         // 打开数据库连接
         if (sqlite3_open(dbName.c_str(), &db) != SQLITE_OK) {
             throw std::runtime_error("Failed to open database");
         }
 
         createPacketTable();
+        createSessionTable();
     }
 
     // 析构函数，关闭数据库连接
@@ -29,6 +36,10 @@ public:
     bool createPacketTable();
     bool storePackets(std::vector<std::shared_ptr<Packet>> &packets);
     bool queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packetList);
+    void storeAndUpdateSessions(std::unordered_set<std::shared_ptr<Session>>& sessions);
+    bool querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList);
+
 private:
     sqlite3* db = nullptr; // SQLite 数据库连接
+    void createSessionTable();
 };

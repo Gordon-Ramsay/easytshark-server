@@ -82,6 +82,8 @@ public:
     // -----------------------------数据查询相关接口-----------------------------------
     void queryPackets(QueryCondition &queryConditon, std::vector<std::shared_ptr<Packet>> &packets);
 
+    void querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList);
+
 private:
 
     // 在线采集数据包的工作线程
@@ -108,6 +110,7 @@ private:
     WORK_STATUS workStatus = STATUS_IDLE;
     std::recursive_mutex workStatusLock;
 
+    std::string workDir;
     std::string tsharkPath;
     std::string editcapPath;
 
@@ -144,6 +147,9 @@ private:
 
     // 会话表
     std::unordered_map<FiveTuple, std::shared_ptr<Session>, FiveTupleHash> sessionMap;
+
+    // 等待存储入库的会话列表，使用unordered_set，自动去重
+    std::unordered_set<std::shared_ptr<Session>> sessionSetTobeStore;
 
     // -----------------------------以下与网卡流量趋势监控有关-----------------------------------
     // 网卡监控相关的信息

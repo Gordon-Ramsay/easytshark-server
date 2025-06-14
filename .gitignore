@@ -5,3 +5,5 @@ build/*
 httpserver.exe
 httpserver.cpp
 log.txt
+mytshark.db
+.gitignore

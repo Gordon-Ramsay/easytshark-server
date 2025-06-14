@@ -139,7 +139,7 @@ public:
                 sendSuccessResponse(res);
             }
             else {
-                sendErrorResponse(res, ERROR_SUCCESS);
+                sendErrorResponse(res, ERROR_STATUS_SUCCESS);
             }
         }
         catch (const std::exception& e) {
@@ -160,8 +160,8 @@ public:
             resDoc.SetObject();
 
             // 添加 "code" 和 "msg"
-            resDoc.AddMember("code", ERROR_SUCCESS, allocator);
-            resDoc.AddMember("msg", rapidjson::Value(TsharkError::getErrorMsg(ERROR_SUCCESS).c_str(), allocator), allocator);
+            resDoc.AddMember("code", ERROR_STATUS_SUCCESS, allocator);
+            resDoc.AddMember("msg", rapidjson::Value(TsharkError::getErrorMsg(ERROR_STATUS_SUCCESS).c_str(), allocator), allocator);
 
             // 构建 "data"
             rapidjson::Value dataObject(rapidjson::kObjectType);

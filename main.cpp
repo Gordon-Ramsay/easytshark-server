@@ -5,6 +5,7 @@
 #include "tshark_manager.h"
 #include "controller/packet_controller.hpp"
 #include "controller/adaptor_controller.hpp"
+#include "controller/session_controller.hpp"
 
 std::shared_ptr<TsharkManager> g_ptrTsharkManager;
 
@@ -52,11 +53,14 @@ int main(int argc, char* argv[]) {
 
 
     // 创建Controller并注册路由
-    PacketController packetController(server, g_ptrTsharkManager);
-    packetController.registerRoute();
+    std::vector<std::shared_ptr<BaseController>> controllerList;
+    controllerList.push_back(std::make_shared<PacketController>(server, g_ptrTsharkManager));
+    controllerList.push_back(std::make_shared<SessionController>(server, g_ptrTsharkManager));
+    controllerList.push_back(std::make_shared<AdaptorController>(server, g_ptrTsharkManager));
 
-    AdaptorController adaptorController(server, g_ptrTsharkManager);
-    adaptorController.registerRoute();
+    for (auto controller : controllerList) {
+        controller->registerRoute();
+    }
 
     // 启动服务器，监听 8080 端口
     server.listen("127.0.0.1", 8080);
