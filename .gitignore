@@ -4,6 +4,8 @@ build
 build/*
 httpserver.exe
 httpserver.cpp
-log.txt
 mytshark.db
+app.log
 .gitignore
+.vscode/*
+.vscode

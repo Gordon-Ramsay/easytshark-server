@@ -3,6 +3,7 @@
 #include "httplib/httplib.h"
 
 #include "tshark_manager.h"
+#include "pagehelper.h"
 #include "controller/packet_controller.hpp"
 #include "controller/adaptor_controller.hpp"
 #include "controller/session_controller.hpp"
@@ -19,6 +20,13 @@ void hello(const httplib::Request& req, httplib::Response& res) {
 
 httplib::Server::HandlerResponse before_request(const httplib::Request& req, httplib::Response& res) {
     LOG_F(INFO, "Request received for %s", req.path.c_str());
+
+    // 提取分页参数
+    PageAndOrder* pageAndOrder = PageHelper::getPageAndOrder();
+    pageAndOrder->pageNum = BaseController::getIntParam(req, "pageNum", 1);
+    pageAndOrder->pageSize = BaseController::getIntParam(req, "pageSize", 100);
+    pageAndOrder->orderBy = BaseController::getStringParam(req, "orderBy", "");
+    pageAndOrder->descOrAsc = BaseController::getStringParam(req, "descOrAsc", "asc");
     return httplib::Server::HandlerResponse::Unhandled;
 }
 

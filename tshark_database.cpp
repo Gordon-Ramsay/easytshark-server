@@ -92,43 +92,56 @@ bool TsharkDatabase::storePackets(std::vector<std::shared_ptr<Packet>>& packets)
 }
 
 // 从数据库查询数据包分页数据
-bool TsharkDatabase::queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packetList) {
-    sqlite3_stmt *stmt = nullptr, *countStmt = nullptr;
-    std::string sql = PacketSQL::buildPacketQuerySQL(queryConditon);
-    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        LOG_F(ERROR, "Failed to prepare statement: ");
-        return false;
+bool TsharkDatabase::queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packetList, int& total) {
+        sqlite3_stmt *stmt = nullptr, *countStmt = nullptr;
+        std::string sql = PacketSQL::buildPacketQuerySQL(queryConditon);
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+            LOG_F(ERROR, "Failed to prepare statement: ");
+            return false;
+        }
+
+        sqlite3_bind_text(stmt, 1, queryConditon.ip.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 2, queryConditon.ip.c_str(), -1, SQLITE_STATIC);
+        sqlite3_bind_int(stmt, 3, queryConditon.port);
+        sqlite3_bind_int(stmt, 4, queryConditon.port);
+
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            std::shared_ptr<Packet> packet = std::make_shared<Packet>();
+            packet->frame_number = sqlite3_column_int(stmt, 0);
+            packet->time = sqlite3_column_double(stmt, 1);
+            packet->cap_len = sqlite3_column_int(stmt, 2);
+            packet->len = sqlite3_column_int(stmt, 3);
+            packet->src_mac = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+            packet->dst_mac = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+            packet->src_ip = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+            packet->src_location = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
+            packet->src_port = sqlite3_column_int(stmt, 8);
+            packet->dst_ip = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 9));
+            packet->dst_location = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 10));
+            packet->dst_port = sqlite3_column_int(stmt, 11);
+            packet->protocol = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 12));
+            packet->info = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 13));
+            packet->file_offset = sqlite3_column_int(stmt, 14);
+            packetList.push_back(packet);
+        }
+
+        sqlite3_finalize(stmt);
+
+        // 再查询总数total
+        sql = PacketSQL::buildPacketQuerySQL_Count(queryConditon);
+        if (sqlite3_prepare_v2(db, sql.c_str(), -1, &countStmt, nullptr) != SQLITE_OK) {
+            std::cout << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+            return false;
+        }
+        // 执行查询并获取结果
+        if (sqlite3_step(countStmt) == SQLITE_ROW) {
+            total = sqlite3_column_int(countStmt, 0);
+        }
+
+        sqlite3_finalize(countStmt);
+
+        return true;
     }
-
-    sqlite3_bind_text(stmt, 1, queryConditon.ip.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 2, queryConditon.ip.c_str(), -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 3, queryConditon.port);
-    sqlite3_bind_int(stmt, 4, queryConditon.port);
-
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-        std::shared_ptr<Packet> packet = std::make_shared<Packet>();
-        packet->frame_number = sqlite3_column_int(stmt, 0);
-        packet->time = sqlite3_column_double(stmt, 1);
-        packet->cap_len = sqlite3_column_int(stmt, 2);
-        packet->len = sqlite3_column_int(stmt, 3);
-        packet->src_mac = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
-        packet->dst_mac = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
-        packet->src_ip = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
-        packet->src_location = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 7));
-        packet->src_port = sqlite3_column_int(stmt, 8);
-        packet->dst_ip = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 9));
-        packet->dst_location = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 10));
-        packet->dst_port = sqlite3_column_int(stmt, 11);
-        packet->protocol = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 12));
-        packet->info = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 13));
-        packet->file_offset = sqlite3_column_int(stmt, 14);
-        packetList.push_back(packet);
-    }
-
-    sqlite3_finalize(stmt);
-
-    return true;
-}
 
 // 创建会话表
 void TsharkDatabase::createSessionTable() {
@@ -233,7 +246,7 @@ void TsharkDatabase::storeAndUpdateSessions(std::unordered_set<std::shared_ptr<S
 }
 
 // 从数据库查询会话分页数据
-bool TsharkDatabase::querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList) {
+bool TsharkDatabase::querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList, int& total) {
     sqlite3_stmt* stmt = nullptr;
     std::string sql = SessionSQL::buildSessionQuerySQL(condition);
 

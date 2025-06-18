@@ -23,6 +23,7 @@ include_directories(${CMAKE_SOURCE_DIR}/third_library)
 add_executable(main
 
                 main.cpp
+                pagehelper.cpp
                 tshark_manager.cpp
                 tshark_database.cpp
                 utils/ip2region_util.cpp

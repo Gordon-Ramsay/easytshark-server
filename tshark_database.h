@@ -15,7 +15,7 @@ public:
     TsharkDatabase(const std::string &dbName) {
 
         // 删除之前的旧文件（如果有的话）
-        remove(dbName.c_str());
+        // remove(dbName.c_str());
 
         // 打开数据库连接
         if (sqlite3_open(dbName.c_str(), &db) != SQLITE_OK) {
@@ -35,9 +35,9 @@ public:
 
     bool createPacketTable();
     bool storePackets(std::vector<std::shared_ptr<Packet>> &packets);
-    bool queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packetList);
+    bool queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packetList, int& total);
     void storeAndUpdateSessions(std::unordered_set<std::shared_ptr<Session>>& sessions);
-    bool querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList);
+    bool querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList, int& total);
 
 private:
     sqlite3* db = nullptr; // SQLite 数据库连接

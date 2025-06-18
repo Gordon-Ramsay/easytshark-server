@@ -1,8 +1,13 @@
+#pragma once
+#ifndef PACKET_SQL_H
+#define PACKET_SQL_H
+
 #include <string>
 #include <sstream>
 #include <iostream>
 #include "tshark_datatype.h"
 #include "loguru/loguru.hpp"
+#include "pagehelper.h"
 
 class PacketSQL {
 public:
@@ -41,8 +46,23 @@ public:
             }
         }
 
+        ss << PageHelper::getPageSql();
+
         sql = ss.str();
         LOG_F(INFO, "[BUILD SQL]: %s", sql.c_str());
         return sql;
     }
+
+    static std::string buildPacketQuerySQL_Count(QueryCondition &condition) {
+        std::string sql = buildPacketQuerySQL(condition);
+        auto pos = sql.find("LIMIT");
+        if (pos != std::string::npos) {
+            sql = sql.substr(0, pos);
+        }
+        std::string countSql = "SELECT COUNT(0) FROM (" + sql + ") t_temp;";
+        LOG_F(INFO, "[BUILD SQL]: %s", countSql.c_str());
+        return countSql;
+    }
 };
+
+#endif // PACKET_SQL_H

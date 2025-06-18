@@ -37,9 +37,10 @@ public:
             }
 
             // 调用 tSharkManager 的方法获取数据
+            int total = 0;
             std::vector<std::shared_ptr<Packet>> packetList;
-            __tsharkManager->queryPackets(queryCondition, packetList);
-            sendDataList(res, packetList);
+            __tsharkManager->queryPackets(queryCondition, packetList, total);
+            sendDataList(res, packetList, total);
         }
         catch (const std::exception& e) {
             // 如果发生异常，返回错误响应

@@ -30,9 +30,10 @@ public:
             }
 
             // 调用 tSharkManager 的方法获取数据
+            int total = 0;
             std::vector<std::shared_ptr<Session>> sessionList;
-            __tsharkManager->querySessions(queryCondition, sessionList);
-            sendDataList(res, sessionList);
+            __tsharkManager->querySessions(queryCondition, sessionList, total);
+            sendDataList(res, sessionList, total);
         } catch (const std::exception &e) {
             // 如果发生异常，返回错误响应
             sendErrorResponse(res, ERROR_INTERNAL_WRONG);

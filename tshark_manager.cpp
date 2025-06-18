@@ -25,7 +25,11 @@ TsharkManager::TsharkManager(std::string workDir) {
     this->tsharkPath = "F:/Wireshark/tshark.exe";
     this->editcapPath = "F:/Wireshark/editcap.exe";
     std::string xdbPath = workDir + "/third_library/ip2region/ip2region.xdb";
-    storage = std::make_shared<TsharkDatabase>(workDir + "/mytshark.db");
+    std::string dbName = workDir + "/mytshark.db";
+    LOG_F(INFO, "TsharkManager initialized with workDir: %s", workDir.c_str());
+    LOG_F(INFO, "Using xdbPath: %s", xdbPath.c_str());
+    LOG_F(INFO, "Using dbName: %s", dbName.c_str());
+    storage = std::make_shared<TsharkDatabase>(dbName);
     IP2RegionUtil::init(xdbPath);
 }
 
@@ -802,12 +806,12 @@ void TsharkManager::processPacket(std::shared_ptr<Packet> packet) {
     }
 }
 
-void TsharkManager::queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packets) {
-    storage->queryPackets(queryConditon, packets);
+void TsharkManager::queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>>& packets, int& total) {
+    storage->queryPackets(queryConditon, packets, total);
 }
 
-void TsharkManager::querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList) {
-    storage->querySessions(condition, sessionList);
+void TsharkManager::querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList, int& total) {
+    storage->querySessions(condition, sessionList, total);
 }
 
 // 将数据包格式转换为旧的pcap格式

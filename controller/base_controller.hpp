@@ -50,7 +50,7 @@ protected:
 
     // 使用模板的形式返回数据列表
     template<typename Data>
-    void sendDataList(httplib::Response &res, std::vector<std::shared_ptr<Data>>& dataList) {
+    void sendDataList(httplib::Response &res, std::vector<std::shared_ptr<Data>>& dataList, int total) {
         /**
          * 返回数据格式：
          * {
@@ -66,6 +66,7 @@ protected:
         // 添加 "code" 和 "msg"
         resDoc.AddMember("code", ERROR_STATUS_SUCCESS, allocator);
         resDoc.AddMember("msg", rapidjson::Value(TsharkError::getErrorMsg(ERROR_STATUS_SUCCESS).c_str(), allocator), allocator);
+        resDoc.AddMember("total", total, allocator);
 
         // 构建 "data" 数组
         rapidjson::Value dataArray(rapidjson::kArrayType);

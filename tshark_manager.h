@@ -80,9 +80,9 @@ public:
     void printAllSessions();
     
     // -----------------------------数据查询相关接口-----------------------------------
-    void queryPackets(QueryCondition &queryConditon, std::vector<std::shared_ptr<Packet>> &packets);
+    void queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>>& packets, int& total);
 
-    void querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList);
+    void querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList, int& total);
 
 private:
 
