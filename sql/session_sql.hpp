@@ -3,6 +3,7 @@
 #include <iostream>
 #include "tshark_datatype.h"
 #include "loguru/loguru.hpp"
+#include "pagehelper.h"
 
 class SessionSQL {
 public:
@@ -44,6 +45,8 @@ public:
                 ss << conditionList[i];
             }
         }
+
+        ss << PageHelper::getPageSql();
 
         sql = ss.str();
         LOG_F(INFO, "[BUILD SQL]: %s", sql.c_str());
