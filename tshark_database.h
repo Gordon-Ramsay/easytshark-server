@@ -6,6 +6,7 @@
 #include "sql/packet_sql.hpp"
 #include "sql/session_sql.hpp"
 #include "sql/stats_sql.hpp"
+#include "sql/region_sql.hpp"
 #include <unordered_set>
 
 
@@ -41,6 +42,7 @@ public:
     bool querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList, int& total);
     bool queryIPStats(QueryCondition& condition, std::vector<std::shared_ptr<IPStatsInfo>>& ipStatsList, int& total);
     bool queryProtoStats(QueryCondition& condition, std::vector<std::shared_ptr<ProtoStatsInfo>>& protoStatsList, int& total);
+    bool queryRegionStats(QueryCondition& condition, std::vector<std::shared_ptr<RegionStatsInfo>>& regionStatsList, int& total);
 
 private:
     sqlite3* db = nullptr; // SQLite 数据库连接

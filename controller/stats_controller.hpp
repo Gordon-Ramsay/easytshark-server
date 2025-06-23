@@ -53,10 +53,6 @@ public:
 
         try {
             // 提取 URL 查询参数
-            auto queryParams = req.params;
-            int pageNum = getIntParam(req, "pageNum", 1);
-            int pageSize = getIntParam(req, "pageSize",  100);
-
             QueryCondition queryCondition;
             if (!parseQueryCondition(req, queryCondition)) {
                 sendErrorResponse(res, ERROR_PARAMETER_WRONG);

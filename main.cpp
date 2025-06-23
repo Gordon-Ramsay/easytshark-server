@@ -8,6 +8,7 @@
 #include "controller/adaptor_controller.hpp"
 #include "controller/session_controller.hpp"
 #include "controller/stats_controller.hpp"
+#include "controller/region_controller.hpp"
 
 std::shared_ptr<TsharkManager> g_ptrTsharkManager;
 
@@ -67,6 +68,7 @@ int main(int argc, char* argv[]) {
     controllerList.push_back(std::make_shared<SessionController>(server, g_ptrTsharkManager));
     controllerList.push_back(std::make_shared<AdaptorController>(server, g_ptrTsharkManager));
     controllerList.push_back(std::make_shared<StatsController>(server, g_ptrTsharkManager));
+    controllerList.push_back(std::make_shared<RegionController>(server, g_ptrTsharkManager));
 
     for (auto controller : controllerList) {
         controller->registerRoute();

@@ -898,3 +898,7 @@ bool TsharkManager::getIPStatsList(QueryCondition& condition, std::vector<std::s
 bool TsharkManager::getProtoStatsList(QueryCondition& condition, std::vector<std::shared_ptr<ProtoStatsInfo>> &protoStatsList, int& total) {
     return storage->queryProtoStats(condition, protoStatsList, total);
 }
+
+bool TsharkManager::getRegionStatsList(QueryCondition& condition, std::vector<std::shared_ptr<RegionStatsInfo>> &regionStatsList, int& total) {
+    return storage->queryRegionStats(condition, regionStatsList, total);
+}

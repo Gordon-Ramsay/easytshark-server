@@ -88,6 +88,8 @@ public:
 
     bool getProtoStatsList(QueryCondition& condition, std::vector<std::shared_ptr<ProtoStatsInfo>> &protoStatsList, int& total);
 
+    bool getRegionStatsList(QueryCondition& condition, std::vector<std::shared_ptr<RegionStatsInfo>> &regionStatsList, int& total);
+
 private:
 
     // 在线采集数据包的工作线程
