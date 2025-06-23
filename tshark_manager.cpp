@@ -894,3 +894,7 @@ void TsharkManager::printAllSessions() {
 bool TsharkManager::getIPStatsList(QueryCondition& condition, std::vector<std::shared_ptr<IPStatsInfo>> &ipStatsList, int& total) {
     return storage->queryIPStats(condition, ipStatsList, total);
 }
+
+bool TsharkManager::getProtoStatsList(QueryCondition& condition, std::vector<std::shared_ptr<ProtoStatsInfo>> &protoStatsList, int& total) {
+    return storage->queryProtoStats(condition, protoStatsList, total);
+}

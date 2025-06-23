@@ -86,6 +86,8 @@ public:
 
     bool getIPStatsList(QueryCondition& condition, std::vector<std::shared_ptr<IPStatsInfo>> &ipStatsList, int& total);
 
+    bool getProtoStatsList(QueryCondition& condition, std::vector<std::shared_ptr<ProtoStatsInfo>> &protoStatsList, int& total);
+
 private:
 
     // 在线采集数据包的工作线程

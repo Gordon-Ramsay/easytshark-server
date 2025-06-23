@@ -95,6 +95,43 @@ public:
         LOG_F(INFO, "[BUILD SQL]: %s", countSql.c_str());
         return countSql;
     }
+
+    static std::string buildProtoStatsQuerySQL(QueryCondition &condition) {
+        std::stringstream ss1, ss2, finalSS;
+
+        // 子查询1：统计trans_proto数据
+        ss1 << "SELECT session_id, trans_proto AS protocol, packet_count, total_bytes "
+            << "FROM t_sessions "
+            << "WHERE trans_proto IS NOT NULL AND trans_proto != ''";
+
+        // 子查询2：统计app_proto数据
+        ss2 << "SELECT session_id, app_proto AS protocol, packet_count, total_bytes "
+            << "FROM t_sessions "
+            << "WHERE app_proto IS NOT NULL AND app_proto != ''";
+
+        // 组合查询与聚合统计
+        finalSS << "SELECT protocol, "
+                << "SUM(packet_count) AS totalPackets, "
+                << "SUM(total_bytes) AS total_bytes, "
+                << "COUNT(DISTINCT session_id) AS sessionCount "
+                << "FROM (" << ss1.str() << " UNION ALL " << ss2.str() << ") AS combined "
+                << "GROUP BY protocol" << PageHelper::getPageSql();
+
+        std::string sql = finalSS.str();
+        LOG_F(INFO, "[BUILD SQL]: %s", sql.c_str());
+        return sql;
+    }
+
+    static std::string buildProtoStatsQuerySQL_Count(QueryCondition &condition) {
+        std::string sql = buildProtoStatsQuerySQL(condition);
+        auto pos = sql.find("LIMIT");
+        if (pos != std::string::npos) {
+            sql = sql.substr(0, pos);
+        }
+        std::string countSql = "SELECT COUNT(0) FROM (" + sql + ") t_temp;";
+        LOG_F(INFO, "[BUILD SQL]: %s", countSql.c_str());
+        return countSql;
+    }
 };
 
 #endif // STATS_SQL_H

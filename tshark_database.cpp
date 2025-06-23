@@ -350,3 +350,39 @@ bool TsharkDatabase::queryIPStats(QueryCondition& condition, std::vector<std::sh
     sqlite3_finalize(countStmt);
     return true;
 }
+
+bool TsharkDatabase::queryProtoStats(QueryCondition& condition, std::vector<std::shared_ptr<ProtoStatsInfo>>& protoStatsList, int& total) {
+    sqlite3_stmt* stmt = nullptr, * countStmt = nullptr;
+    std::string sql = StatsSQL::buildProtoStatsQuerySQL(condition);
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        std::cout << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return false;
+    }
+
+    // 执行查询并输出结果
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        std::shared_ptr<ProtoStatsInfo> protoStatsInfo = std::make_shared<ProtoStatsInfo>();
+        protoStatsInfo->proto = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        protoStatsInfo->total_packets = sqlite3_column_int(stmt, 1);
+        protoStatsInfo->total_bytes = sqlite3_column_int(stmt, 2);
+        protoStatsInfo->session_count = sqlite3_column_int(stmt, 3);
+
+        protoStatsList.push_back(protoStatsInfo);
+    }
+
+    sqlite3_finalize(stmt);
+
+    // 再查询总数total
+    sql = StatsSQL::buildProtoStatsQuerySQL_Count(condition);
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &countStmt, nullptr) != SQLITE_OK) {
+        std::cout << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return false;
+    }
+    // 执行查询并获取结果
+    if (sqlite3_step(countStmt) == SQLITE_ROW) {
+        total = sqlite3_column_int(countStmt, 0);
+    }
+
+    sqlite3_finalize(countStmt);
+    return true;
+}

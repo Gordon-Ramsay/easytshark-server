@@ -40,6 +40,7 @@ public:
     void storeAndUpdateSessions(std::unordered_set<std::shared_ptr<Session>>& sessions);
     bool querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList, int& total);
     bool queryIPStats(QueryCondition& condition, std::vector<std::shared_ptr<IPStatsInfo>>& ipStatsList, int& total);
+    bool queryProtoStats(QueryCondition& condition, std::vector<std::shared_ptr<ProtoStatsInfo>>& protoStatsList, int& total);
 
 private:
     sqlite3* db = nullptr; // SQLite 数据库连接
