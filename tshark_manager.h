@@ -84,6 +84,8 @@ public:
 
     void querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList, int& total);
 
+    bool getIPStatsList(QueryCondition& condition, std::vector<std::shared_ptr<IPStatsInfo>> &ipStatsList, int& total);
+
 private:
 
     // 在线采集数据包的工作线程

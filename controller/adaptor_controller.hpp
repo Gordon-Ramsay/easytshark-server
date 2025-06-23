@@ -1,3 +1,6 @@
+#pragma once
+#ifndef TSHARK_SERVER_ADAPTOR_CONTROLLER_H
+#define TSHARK_SERVER_ADAPTOR_CONTROLLER_H
 #include "controller/base_controller.hpp"
 
 
@@ -194,3 +197,5 @@ public:
     }
 
 };
+
+#endif // ADAPTOR_CONTROLLER_H

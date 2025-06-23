@@ -1,3 +1,7 @@
+#pragma once
+#ifndef SESSION_SQL_H
+#define SESSION_SQL_H
+
 #include <string>
 #include <sstream>
 #include <iostream>
@@ -52,4 +56,17 @@ public:
         LOG_F(INFO, "[BUILD SQL]: %s", sql.c_str());
         return sql;
     }
+
+    static std::string buildSessionQuerySQL_Count(QueryCondition &condition) {
+        std::string sql = buildSessionQuerySQL(condition);
+        auto pos = sql.find("LIMIT");
+        if (pos != std::string::npos) {
+            sql = sql.substr(0, pos);
+        }
+        std::string countSql = "SELECT COUNT(0) FROM (" + sql + ") t_temp;";
+        LOG_F(INFO, "[BUILD SQL]: %s", countSql.c_str());
+        return countSql;
+    }
 };
+
+#endif // SESSION_SQL_H

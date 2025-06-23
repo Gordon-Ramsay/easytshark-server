@@ -889,3 +889,8 @@ void TsharkManager::printAllSessions() {
         std::cout << buffer.GetString() << std::endl;
     }
 }
+
+// 查询IP通信统计列表数据
+bool TsharkManager::getIPStatsList(QueryCondition& condition, std::vector<std::shared_ptr<IPStatsInfo>> &ipStatsList, int& total) {
+    return storage->queryIPStats(condition, ipStatsList, total);
+}

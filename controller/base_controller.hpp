@@ -1,3 +1,4 @@
+#pragma once
 #ifndef TSHARK_SERVER_BASE_CONTROLLER_HPP
 #define TSHARK_SERVER_BASE_CONTROLLER_HPP
 #include "httplib/httplib.h"

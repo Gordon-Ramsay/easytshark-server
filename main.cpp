@@ -7,6 +7,7 @@
 #include "controller/packet_controller.hpp"
 #include "controller/adaptor_controller.hpp"
 #include "controller/session_controller.hpp"
+#include "controller/stats_controller.hpp"
 
 std::shared_ptr<TsharkManager> g_ptrTsharkManager;
 
@@ -50,7 +51,7 @@ int main(int argc, char* argv[]) {
     InitLog(argc, argv);
 
     g_ptrTsharkManager = std::make_shared<TsharkManager>("F:/cppProject/tsharkwithui");
-    // g_ptrTsharkManager->analysisFile("F:/cppProject/tsharkwithui/build/capture.pcap");
+    g_ptrTsharkManager->analysisFile("F:/cppProject/tsharkwithui/build/capture.pcap");
 
     // 创建一个 HTTP 服务器对象
     httplib::Server server;
@@ -65,6 +66,7 @@ int main(int argc, char* argv[]) {
     controllerList.push_back(std::make_shared<PacketController>(server, g_ptrTsharkManager));
     controllerList.push_back(std::make_shared<SessionController>(server, g_ptrTsharkManager));
     controllerList.push_back(std::make_shared<AdaptorController>(server, g_ptrTsharkManager));
+    controllerList.push_back(std::make_shared<StatsController>(server, g_ptrTsharkManager));
 
     for (auto controller : controllerList) {
         controller->registerRoute();

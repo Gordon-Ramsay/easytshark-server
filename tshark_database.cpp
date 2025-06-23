@@ -247,7 +247,7 @@ void TsharkDatabase::storeAndUpdateSessions(std::unordered_set<std::shared_ptr<S
 
 // 从数据库查询会话分页数据
 bool TsharkDatabase::querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList, int& total) {
-    sqlite3_stmt* stmt = nullptr;
+    sqlite3_stmt *stmt = nullptr, *countStmt = nullptr;
     std::string sql = SessionSQL::buildSessionQuerySQL(condition);
 
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
@@ -279,5 +279,74 @@ bool TsharkDatabase::querySessions(QueryCondition& condition, std::vector<std::s
     }
 
     sqlite3_finalize(stmt);
+
+    // 再查询总数total
+    sql = SessionSQL::buildSessionQuerySQL_Count(condition);
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        std::cout << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return false;
+    }
+
+    // 执行查询并获取结果
+    if (sqlite3_step(countStmt) == SQLITE_ROW) {
+        total = sqlite3_column_int(stmt, 0);
+    }
+
+    sqlite3_finalize(stmt);
+
+    return true;
+}
+
+// IP统计查询-查询列表数据
+bool TsharkDatabase::queryIPStats(QueryCondition& condition, std::vector<std::shared_ptr<IPStatsInfo>>& ipStatsList, int& total) {
+
+    sqlite3_stmt* stmt = nullptr, * countStmt = nullptr;
+    std::string sql = StatsSQL::buildIPStatsQuerySQL(condition);
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        std::cout << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return false;
+    }
+
+    // 执行查询并输出结果
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        std::shared_ptr<IPStatsInfo> ipStatsInfo = std::make_shared<IPStatsInfo>();
+        ipStatsInfo->ip = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        ipStatsInfo->location = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+        ipStatsInfo->earliest_time = sqlite3_column_double(stmt, 2);
+        ipStatsInfo->latest_time = sqlite3_column_double(stmt, 3);
+        // 处理ports
+        std::string portsStr(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4)));
+        auto portVecStr = MiscUtil::splitString(portsStr, ',');
+        ipStatsInfo->ports = MiscUtil::toIntVector(portVecStr);
+
+        // 处理transProtos和appProtos
+        std::string transProtosStr(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5)));
+        std::string appProtosStr(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6)));
+        ipStatsInfo->protocols = MiscUtil::splitString(transProtosStr + "," + appProtosStr, ',');
+
+        ipStatsInfo->total_sent_packets = sqlite3_column_int(stmt, 7);
+        ipStatsInfo->total_sent_bytes = sqlite3_column_int(stmt, 8);
+        ipStatsInfo->total_recv_packets = sqlite3_column_int(stmt, 9);
+        ipStatsInfo->total_recv_bytes = sqlite3_column_int(stmt, 10);
+        ipStatsInfo->tcp_session_count = sqlite3_column_int(stmt, 11);
+        ipStatsInfo->udp_session_count = sqlite3_column_int(stmt, 12);
+
+        ipStatsList.push_back(ipStatsInfo);
+    }
+
+    sqlite3_finalize(stmt);
+
+    // 再查询总数total
+    sql = StatsSQL::buildIPStatsQuerySQL_Count(condition);
+    if (sqlite3_prepare_v2(db, sql.c_str(), -1, &countStmt, nullptr) != SQLITE_OK) {
+        std::cout << "Failed to prepare statement: " << sqlite3_errmsg(db) << std::endl;
+        return false;
+    }
+    // 执行查询并获取结果
+    if (sqlite3_step(countStmt) == SQLITE_ROW) {
+        total = sqlite3_column_int(countStmt, 0);
+    }
+
+    sqlite3_finalize(countStmt);
     return true;
 }

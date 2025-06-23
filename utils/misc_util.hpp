@@ -153,6 +153,47 @@ public:
         }
     }
 
+    // 简单的字符串分割函数，用于将"1,2,3"之类的字符串分割为set
+    static std::set<std::string> splitString(const std::string &str, char delim) {
+        std::set<std::string> result;
+        std::istringstream iss(str);
+        std::string token;
+        while (std::getline(iss, token, delim)) {
+            if (!token.empty()) {
+                result.insert(token);
+            }
+        }
+        return result;
+    }
+
+    // 将分割后的string set转换为int set（用于端口列表）
+    static std::set<int> toIntVector(const std::set<std::string>& strs) {
+        std::set<int> ints;
+        for (auto &s : strs) {
+            try {
+                ints.insert(std::stoi(s));
+            } catch (...) {
+                // 如果转换失败，可选择忽略或打印错误信息
+            }
+        }
+        return ints;
+    }
+
+    // 将set容器中的数据合并为一个字符串
+    static std::string convertSetToString(std::set<std::string> dataSets, char delim) {
+
+        std::string result;
+        for (auto item : dataSets) {
+            if (result.empty()) {
+                result = item;
+            } else {
+                result = result + delim + item;
+            }
+        }
+        return result;
+    }
+
+
 private:
     // 私有函数，转换过程中需要递归处理子节点
     static void xml_to_json_recursive(Value& json, xml_node<>* node, Document::AllocatorType& allocator) {

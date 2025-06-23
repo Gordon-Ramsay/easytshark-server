@@ -5,6 +5,7 @@
 #include "loguru/loguru.hpp"
 #include "sql/packet_sql.hpp"
 #include "sql/session_sql.hpp"
+#include "sql/stats_sql.hpp"
 #include <unordered_set>
 
 
@@ -38,6 +39,7 @@ public:
     bool queryPackets(QueryCondition& queryConditon, std::vector<std::shared_ptr<Packet>> &packetList, int& total);
     void storeAndUpdateSessions(std::unordered_set<std::shared_ptr<Session>>& sessions);
     bool querySessions(QueryCondition& condition, std::vector<std::shared_ptr<Session>>& sessionList, int& total);
+    bool queryIPStats(QueryCondition& condition, std::vector<std::shared_ptr<IPStatsInfo>>& ipStatsList, int& total);
 
 private:
     sqlite3* db = nullptr; // SQLite 数据库连接
