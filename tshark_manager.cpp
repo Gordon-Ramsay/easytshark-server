@@ -799,6 +799,8 @@ void TsharkManager::processPacket(std::shared_ptr<Packet> packet) {
             session->ip2_send_bytes_count += packet->len;
         }
 
+        sessionIdMap[session->session_id] = session;
+
         storeLock.lock();
         // 将数据包加入到会话中
         sessionSetTobeStore.insert(session);
