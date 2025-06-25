@@ -90,6 +90,9 @@ public:
 
     bool getRegionStatsList(QueryCondition& condition, std::vector<std::shared_ptr<RegionStatsInfo>> &regionStatsList, int& total);
 
+    // 获取会话数据流
+    DataStreamCountInfo getSessionDataStream(uint32_t sessionId, std::vector<DataStreamItem>& dataStreamList);
+
 private:
 
     // 在线采集数据包的工作线程
@@ -180,6 +183,8 @@ private:
 
     // 网卡流量监控的开始时间
     long adapterFlowTrendMonitorStartTime = 0;
+
+    std::map<uint32_t, std::shared_ptr<Session>> sessionIdMap;
 };
     
 

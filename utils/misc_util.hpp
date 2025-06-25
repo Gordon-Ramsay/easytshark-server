@@ -193,6 +193,14 @@ public:
         return result;
     }
 
+    static void trimEnd(std::string& str) {
+        if (str.size() >= 2 && str.substr(str.size() - 2) == "\r\n") {
+            str.erase(str.size() - 2);  // 删除末尾的 \r\n
+        }
+        else if (!str.empty() && str.back() == '\n') {
+            str.erase(str.size() - 1);  // 删除末尾的 \n
+        }
+    }
 
 private:
     // 私有函数，转换过程中需要递归处理子节点
