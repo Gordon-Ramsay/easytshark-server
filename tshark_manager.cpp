@@ -389,6 +389,7 @@ bool TsharkManager::startCapture(std::string adapterName) {
 }
 
 void TsharkManager::captureWorkThreadEntry(std::string adapterName) {
+    reset();
 
     std::string captureFile = "capture.pcap";
     std::vector<std::string> tsharkArgs = {
@@ -849,7 +850,7 @@ void TsharkManager::reset() {
     allPackets.clear();
     packetsTobeStore.clear();
     sessionSetTobeStore.clear();
-
+    sessionIdMap.clear();
 
     if (captureWorkThread) {
         captureWorkThread->join();
