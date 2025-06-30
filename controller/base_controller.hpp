@@ -128,17 +128,20 @@ protected:
 
             // 检查是否有 body 数据
             if (req.body.empty()) {
+                LOG_F(INFO, "Request body is empty");
                 throw std::runtime_error("Request body is empty");
             }
 
             // 使用 RapidJSON 解析 JSON
             rapidjson::Document doc;
             if (doc.Parse(req.body.c_str()).HasParseError()) {
+                LOG_F(INFO, "Failed to parse JSON");
                 throw std::runtime_error("Failed to parse JSON");
             }
 
             // 验证是否是 JSON 对象
             if (!doc.IsObject()) {
+                LOG_F(INFO, "Invalid JSON format, expected an object");
                 throw std::runtime_error("Invalid JSON format, expected an object");
             }
 

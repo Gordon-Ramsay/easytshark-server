@@ -33,6 +33,12 @@ httplib::Server::HandlerResponse before_request(const httplib::Request& req, htt
 }
 
 void after_response(const httplib::Request& req, httplib::Response& res) {
+    if (req.method != "OPTIONS") {
+        res.set_header("Access-Control-Allow-Origin", "http://localhost:3000");
+        res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE, PUT");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+        res.set_header("Access-Control-Allow-Credentials", "true");
+    }
     LOG_F(INFO, "Received response with status %d", res.status);
 }
 
@@ -56,6 +62,13 @@ int main(int argc, char* argv[]) {
 
     // 创建一个 HTTP 服务器对象
     httplib::Server server;
+    server.Options(".*", [](const httplib::Request& req, httplib::Response& res) {
+        res.set_header("Access-Control-Allow-Origin", "http://localhost:3000");
+        res.set_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE, PUT");
+        res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+        res.set_header("Access-Control-Allow-Credentials", "true");
+        res.status = 200;
+        });
 
     // 设置钩子函数
     server.set_pre_routing_handler(before_request);
