@@ -75,7 +75,7 @@ public:
     void clearFlowTrendData();
 
     // 获取数据包详细信息
-    bool getPacketDetailInfo(uint32_t frameNumber, std::string& result);
+    bool getPacketDetailInfo(uint32_t frameNumber, rapidjson::Document& detailJson);
 
     void printAllSessions();
     

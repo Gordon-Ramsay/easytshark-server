@@ -636,7 +636,7 @@ void TsharkManager::getAdaptersFlowTrendData(std::map<std::string, std::map<long
 }
 
 // 获取指定数据包的详情内容
-bool TsharkManager::getPacketDetailInfo(uint32_t frameNumber, std::string &result) {
+bool TsharkManager::getPacketDetailInfo(uint32_t frameNumber, rapidjson::Document& detailJson) {
 
     // 先通过editcap将这一帧数据包从文件中摘出来，然后再获取详情，这样会快一些
     std::string tmpFilePath = MiscUtil::getDefaultDataDir() + MiscUtil::getRandomString(10) + ".pcap";
@@ -670,7 +670,6 @@ bool TsharkManager::getPacketDetailInfo(uint32_t frameNumber, std::string &resul
     remove(tmpFilePath.c_str());
 
     // 将xml内容转换为JSON
-    rapidjson::Document detailJson;
     if (!MiscUtil::xml2JSON(tsharkResult, detailJson)) {
         LOG_F(ERROR, "XML转JSON失败");
         return false;
@@ -679,15 +678,37 @@ bool TsharkManager::getPacketDetailInfo(uint32_t frameNumber, std::string &resul
     // 字段翻译
     translator.translateShowNameFields(detailJson["pdml"]["packet"][0]["proto"], detailJson.GetAllocator());
 
-    // 序列化为 JSON 字符串
-    rapidjson::StringBuffer stringBuffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(stringBuffer);
-    detailJson.Accept(writer);
 
-    // 设置数据包详情结果
-    result = stringBuffer.GetString();
+    // 将原始十六进制数据插入进去
+    if (detailJson.HasMember("pdml") && detailJson["pdml"].HasMember("packet")) {
+        std::string packetHex;
+        std::vector<unsigned char> packetData;
+        if (getPacketHexData(frameNumber, packetData)) {
+            // 将原始数据转换为16进制格式
+            std::ostringstream oss;
+            oss << std::hex << std::setfill('0');
+            for (unsigned char ch : packetData) {
+                oss << std::setw(2) << static_cast<int>(ch);
+            }
+            packetHex = oss.str();
+        }
 
-    return true;
+        detailJson["pdml"]["packet"][0].AddMember(
+            "hexdata",
+            rapidjson::Value().SetString(packetHex.c_str(), detailJson.GetAllocator()),
+            detailJson.GetAllocator()
+        );
+
+        // 去掉外层的键值
+        rapidjson::Value temp;
+        temp.CopyFrom(detailJson["pdml"]["packet"][0], detailJson.GetAllocator());
+        detailJson.SetObject();
+        detailJson.CopyFrom(temp, detailJson.GetAllocator());
+
+        return true;
+    }
+
+    return false;
 }
 
 // 负责存储数据包和会话信息的存储线程函数

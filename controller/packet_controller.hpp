@@ -22,6 +22,10 @@ public:
         __server.Post("/api/analysisFile", [this](const httplib::Request& req, httplib::Response& res) {
             analysisiFile(req, res);
         });
+
+        __server.Post("/api/getPacketDetail", [this](const httplib::Request& req, httplib::Response& res) {
+            getPacketDetail(req, res);
+        });
     }
 
 
@@ -84,6 +88,36 @@ public:
         catch (const std::exception& e) {
             // 如果发生异常，返回错误响应
             sendErrorResponse(res, ERROR_INTERNAL_WRONG);
+        }
+    }
+
+    // 获取数据包详情
+    void getPacketDetail(const httplib::Request& req, httplib::Response& res) {
+
+        try {
+
+            if (req.body.empty()) {
+                return sendErrorResponse(res, ERROR_PARAMETER_WRONG);
+            }
+
+            // 使用 RapidJSON 解析 JSON
+            rapidjson::Document doc;
+            if (doc.Parse(req.body.c_str()).HasParseError()) {
+                return sendErrorResponse(res, ERROR_PARAMETER_WRONG);
+            }
+
+            // 提取数据包编号参数
+            uint32_t frameNumber = doc["frameNumber"].GetInt();
+
+            // 获取数据包详情
+            rapidjson::Document dataDoc;
+            __tsharkManager->getPacketDetailInfo(frameNumber, dataDoc);
+
+            sendJsonResponse(res, dataDoc);
+        }
+        catch (const std::exception& e) {
+            // 如果发生异常，返回错误响应
+            sendErrorResponse(res, ERROR_PARAMETER_WRONG);
         }
     }
 };
