@@ -1,7 +1,6 @@
 #include "tshark_database.h"
 
 bool TsharkDatabase::createPacketTable() {
-    // 检查表是否存在，若不存在则创建
     std::string createTableSQL = R"(
         CREATE TABLE IF NOT EXISTS t_packets (
             frame_number INTEGER PRIMARY KEY,
@@ -18,7 +17,8 @@ bool TsharkDatabase::createPacketTable() {
             dst_port INTEGER,
             protocol TEXT,
             info TEXT,
-            file_offset INTEGER
+            file_offset INTEGER,
+            belong_session_id INTEGER
         );
     )";
 
@@ -40,8 +40,8 @@ bool TsharkDatabase::storePackets(std::vector<std::shared_ptr<Packet>>& packets)
     std::string insertSQL = R"(
         INSERT INTO t_packets (
             frame_number, time, cap_len, len, src_mac, dst_mac, src_ip, src_location, src_port,
-            dst_ip, dst_location, dst_port, protocol, info, file_offset
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            dst_ip, dst_location, dst_port, protocol, info, file_offset, belong_session_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
     )";
 
     sqlite3_stmt* stmt;
@@ -67,6 +67,7 @@ bool TsharkDatabase::storePackets(std::vector<std::shared_ptr<Packet>>& packets)
         sqlite3_bind_text(stmt, 13, packet->protocol.c_str(), -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 14, packet->info.c_str(), -1, SQLITE_STATIC);
         sqlite3_bind_int(stmt, 15, packet->file_offset);
+        sqlite3_bind_int(stmt, 16, packet->belong_session_id);
 
         if (sqlite3_step(stmt) != SQLITE_DONE) {
             LOG_F(ERROR, "Failed to execute insert statement");
@@ -122,6 +123,7 @@ bool TsharkDatabase::queryPackets(QueryCondition& queryConditon, std::vector<std
             packet->protocol = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 12));
             packet->info = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 13));
             packet->file_offset = sqlite3_column_int(stmt, 14);
+            packet->belong_session_id = sqlite3_column_int(stmt, 15);
             packetList.push_back(packet);
         }
 

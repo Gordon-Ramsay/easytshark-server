@@ -158,6 +158,10 @@ protected:
                 queryCondition.proto = doc["proto"].GetString();
             }
 
+            if (doc.HasMember("session_id") && doc["session_id"].IsNumber()) {
+                queryCondition.session_id = doc["session_id"].GetUint();
+            }
+
         } catch (std::exception &) {
             std::cout << "parse parameter error" << std::endl;
             return false;
