@@ -39,6 +39,7 @@ TsharkManager::~TsharkManager() {
 
 bool TsharkManager::analysisFile(std::string filePath) {
 
+    std::unique_lock<std::recursive_mutex> lock(workStatusLock);
     reset();
 
     // 统一转换为标准的pcap格式
@@ -47,6 +48,8 @@ bool TsharkManager::analysisFile(std::string filePath) {
         LOG_F(ERROR, "convert to pcap failed");
         return false;
     }
+
+    workStatus = STATUS_ANALYSIS_FILE;
 
     std::vector<std::string> tsharkArgs = {
             tsharkPath,
@@ -115,6 +118,7 @@ bool TsharkManager::analysisFile(std::string filePath) {
 
     // 等待存储线程退出
     stopFlag = true;
+    workStatus = STATUS_IDLE;
     storageThread->join();
     storageThread.reset();
 
@@ -311,25 +315,21 @@ bool TsharkManager::getPacketHexData(uint32_t frameNumber, std::vector<unsigned 
 // }
 
 std::vector<AdapterInfo> TsharkManager::getNetworkAdapters() {
-    // 需要过滤掉的虚拟网卡，这些不是真实的网卡。tshark -D命令可能会输出这些，把它过滤掉
+    // 需要过滤掉的虚拟网卡
     std::set<std::string> specialInterfaces = { "sshdump", "ciscodump", "udpdump", "randpkt" };
-
-    // 枚举到的网卡列表
     std::vector<AdapterInfo> interfaces;
-
-    // 准备一个buffer缓冲区，来读取tshark -D每一行的内容
     char buffer[256] = { 0 };
     std::string result;
 
     // 启动tshark -D命令
     std::string cmd = tsharkPath + " -D";
-    FILE* pipe = popen(cmd.c_str(), "r");
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
     if (!pipe) {
         throw std::runtime_error("Failed to run tshark command.");
     }
 
     // 读取tshark输出
-    while (fgets(buffer, 256, pipe) != nullptr) {
+    while (fgets(buffer, 256, pipe.get()) != nullptr) {
         result += buffer;
     }
 
@@ -339,7 +339,6 @@ std::vector<AdapterInfo> TsharkManager::getNetworkAdapters() {
     std::string line;
     int index = 1;
     while (std::getline(stream, line)) {
-        // 通过空格拆分字段
         int startPos = line.find(' ');
         if (startPos != std::string::npos) {
             int endPos = line.find(' ', startPos + 1);
@@ -359,44 +358,45 @@ std::vector<AdapterInfo> TsharkManager::getNetworkAdapters() {
             AdapterInfo adapterInfo;
             adapterInfo.name = interfaceName;
             adapterInfo.id = index++;
-
-			// 定位到括号，把括号里面的备注内容提取出来
             if (line.find("(") != std::string::npos && line.find(")") != std::string::npos) {
                 adapterInfo.remark = line.substr(line.find("(") + 1, line.find(")") - line.find("(") - 1);
             }
 
+#ifdef _WIN32
+            // 在Windows平台上，name是设备名，如果有备注名称，就使用备注名称
+            if (!adapterInfo.remark.empty()) {
+                adapterInfo.name = adapterInfo.remark;
+            }
+#endif
             interfaces.push_back(adapterInfo);
         }
     }
 
-    pclose(pipe);
-
     return interfaces;
 }
 
+// 开始抓包
 bool TsharkManager::startCapture(std::string adapterName) {
 
+    std::unique_lock<std::recursive_mutex> lock(workStatusLock);
+    reset();
     LOG_F(INFO, "即将开始抓包，网卡：%s", adapterName.c_str());
-
-    // 关闭停止标记
     stopFlag = false;
-	// 启动抓包线程
-    captureWorkThread = std::make_shared<std::thread>(&TsharkManager::captureWorkThreadEntry, this, "\"" + adapterName + "\"");
-    // 启动存储线程
+    workStatus = STATUS_CAPTURING;
     storageThread = std::make_shared<std::thread>(&TsharkManager::storageThreadEntry, this);
-
+    captureWorkThread = std::make_shared<std::thread>(&TsharkManager::captureWorkThreadEntry, this, "\"" + adapterName + "\"");
     return true;
 }
 
 void TsharkManager::captureWorkThreadEntry(std::string adapterName) {
-    reset();
 
-    std::string captureFile = "capture.pcap";
+    currentFilePath = MiscUtil::getPcapNameByCurrentTimestamp();
     std::vector<std::string> tsharkArgs = {
             tsharkPath,
             "-i", adapterName.c_str(),
-            "-w", captureFile,               // 默认将采集到的数据包写入到这个文件下
+            "-w", currentFilePath,           // 默认将采集到的数据包写入到这个文件下
             "-F", "pcap",                    // 指定存储的格式为PCAP格式
+            "-l",                            // 指定tshark使用行缓冲模式，及时打印输出抓包的包信息
             "-T", "fields",
             "-e", "frame.number",
             "-e", "frame.time_epoch",
@@ -408,14 +408,14 @@ void TsharkManager::captureWorkThreadEntry(std::string adapterName) {
             "-e", "ipv6.src",
             "-e", "ip.dst",
             "-e", "ipv6.dst",
+            "-e", "ip.proto",
+            "-e", "ipv6.nxt",
             "-e", "tcp.srcport",
             "-e", "udp.srcport",
             "-e", "tcp.dstport",
             "-e", "udp.dstport",
             "-e", "_ws.col.Protocol",
             "-e", "_ws.col.Info",
-            "-e", "ip.proto",
-            "-e", "ipv6.nxt",
     };
 
     std::string command;
@@ -457,17 +457,19 @@ void TsharkManager::captureWorkThreadEntry(std::string adapterName) {
         packet->dst_location = IP2RegionUtil::getIpLocation(packet->dst_ip);
 
         processPacket(packet);
+
+        //        if (allPackets.size() % 100 == 0) {
+        //            LOG_F(INFO, "已捕获到 %zu 个包", allPackets.size());
+        //        }
     }
 
     pclose(pipe);
-
-    // 记录当前分析的文件路径
-    currentFilePath = captureFile;
 }
 
 // 停止抓包
 bool TsharkManager::stopCapture() {
 
+    std::unique_lock<std::recursive_mutex> lock(workStatusLock);
     LOG_F(INFO, "即将停止抓包");
     stopFlag = true;
     ProcessUtil::Kill(captureTsharkPid);
@@ -480,14 +482,20 @@ bool TsharkManager::stopCapture() {
     storageThread->join();
     storageThread.reset();
 
+    // 最后把状态重置
+    workStatus = STATUS_IDLE;
+
     return true;
 }
 
 // 开始监控所有网卡流量统计数据
+
 void TsharkManager::startMonitorAdaptersFlowTrend() {
 
+    reset();
     std::unique_lock<std::recursive_mutex> lock(adapterFlowTrendMapLock);
 
+    clearFlowTrendData();
     adapterFlowTrendMonitorStartTime = time(nullptr);
 
     // 第一步：获取网卡列表
@@ -495,18 +503,28 @@ void TsharkManager::startMonitorAdaptersFlowTrend() {
 
     // 第二步：每个网卡启动一个线程，统计对应网卡的数据
     for (auto adapter : adapterList) {
-
         adapterFlowTrendMonitorMap.insert(std::make_pair<>(adapter.name, AdapterMonitorInfo()));
         AdapterMonitorInfo& monitorInfo = adapterFlowTrendMonitorMap.at(adapter.name);
 
         monitorInfo.monitorThread = std::make_shared<std::thread>(&TsharkManager::adapterFlowTrendMonitorThreadEntry, this, adapter.name);
         if (monitorInfo.monitorThread == nullptr) {
             LOG_F(ERROR, "监控线程创建失败，网卡名：%s", adapter.name.c_str());
-        } else {
+        }
+        else {
             LOG_F(INFO, "监控线程创建成功，网卡名：%s，monitorThread: %p", adapter.name.c_str(), monitorInfo.monitorThread.get());
         }
     }
+
+    workStatus = STATUS_MONITORING;
 }
+
+void TsharkManager::clearFlowTrendData() {
+
+    adapterFlowTrendMapLock.lock();
+    adapterFlowTrendMonitorMap.clear();
+    adapterFlowTrendMapLock.unlock();
+}
+
 
 // 获取指定网卡的流量趋势数据
 void TsharkManager::adapterFlowTrendMonitorThreadEntry(std::string adapterName) {
@@ -595,13 +613,19 @@ void TsharkManager::stopMonitorAdaptersFlowTrend() {
         // 然后关闭管道
         pclose(adapterPipePair.second.monitorTsharkPipe);
 
+        if (adapterPipePair.second.monitorThread == nullptr) {
+            LOG_F(ERROR, "发现监控线程nullptr，网卡名：%s", adapterPipePair.first.c_str());
+            continue;
+        }
+
         // 最后等待对应线程退出
         adapterPipePair.second.monitorThread->join();
 
         LOG_F(INFO, "网卡：%s 流量监控已停止", adapterPipePair.first.c_str());
     }
 
-    // 清空记录的流量趋势数据
+    workStatus = STATUS_IDLE;
+
     adapterFlowTrendMonitorMap.clear();
 }
 
@@ -671,7 +695,7 @@ bool TsharkManager::getPacketDetailInfo(uint32_t frameNumber, rapidjson::Documen
 
     // 将xml内容转换为JSON
     if (!MiscUtil::xml2JSON(tsharkResult, detailJson)) {
-        LOG_F(ERROR, "XML转JSON失败");
+        LOG_F(ERROR, "XML转JSON失败: %s", tsharkResult.c_str());
         return false;
     }
 
