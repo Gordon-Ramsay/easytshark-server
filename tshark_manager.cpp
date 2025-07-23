@@ -670,6 +670,23 @@ bool TsharkManager::getPacketDetailInfo(uint32_t frameNumber, rapidjson::Documen
         remove(tmpFilePath.c_str());
         return false;
     }
+    
+    // 超时10秒
+    static const int timeoutSeconds = 10;
+    static const auto startTime = std::chrono::steady_clock::now();
+    while (true) {
+        if (std::chrono::steady_clock::now() - startTime > std::chrono::seconds(timeoutSeconds)) {
+            LOG_F(ERROR, "临时文件生成超时: %s", tmpFilePath.c_str());
+            remove(tmpFilePath.c_str());
+            return false;
+        }
+
+        // 检查临时文件是否存在
+        if (std::ifstream(tmpFilePath)) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
 
     // 通过tshark获取指定数据包详细信息，输出格式为XML
     // 启动'tshark -r ${currentFilePath} -T pdml'命令，获取指定数据包的详情
