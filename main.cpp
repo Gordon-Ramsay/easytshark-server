@@ -57,8 +57,8 @@ int main(int argc, char* argv[]) {
 
     InitLog(argc, argv);
 
-    g_ptrTsharkManager = std::make_shared<TsharkManager>("F:/cppProject/tsharkwithui");
-    g_ptrTsharkManager->analysisFile("F:/cppProject/tsharkwithui/build/capture.pcap");
+    g_ptrTsharkManager = std::make_shared<TsharkManager>("F:/cppProject/easytshark-server");
+    g_ptrTsharkManager->analysisFile("F:/cppProject/easytshark-server/build/capture.pcap");
 
     // 创建一个 HTTP 服务器对象
     httplib::Server server;
