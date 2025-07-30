@@ -122,9 +122,6 @@ bool TsharkManager::analysisFile(std::string filePath) {
     storageThread->join();
     storageThread.reset();
 
-    // 记录当前分析的文件路径
-    currentFilePath = filePath;
-
     LOG_F(INFO, "分析完成，数据包总数：%zu", allPackets.size());
 
     return true;
@@ -750,6 +747,11 @@ bool TsharkManager::getPacketDetailInfo(uint32_t frameNumber, rapidjson::Documen
     }
 
     return false;
+}
+
+// 保存当前数据包
+bool TsharkManager::savePacket(std::string savePath) {
+    return MiscUtil::copyFile(currentFilePath, savePath);
 }
 
 // 负责存储数据包和会话信息的存储线程函数

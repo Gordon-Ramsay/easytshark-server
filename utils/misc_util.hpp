@@ -202,6 +202,36 @@ public:
         }
     }
 
+    // 文件复制函数
+    static bool copyFile(const std::string& sourcePath, const std::string& destPath) {
+        std::ifstream source(sourcePath, std::ios::binary);
+        std::ofstream dest(destPath, std::ios::binary);
+
+        if (!source || !dest) {
+            return false;
+        }
+
+        // 获取源文件大小
+        source.seekg(0, std::ios::end);
+        std::streamsize size = source.tellg();
+        source.seekg(0, std::ios::beg);
+
+        // 创建缓冲区并复制文件内容
+        const std::streamsize bufferSize = 8192; // 8KB缓冲区
+        char* buffer = new char[bufferSize];
+        
+        while (size > 0) {
+            std::streamsize bytesToRead = (size > bufferSize) ? bufferSize : size;
+            source.read(buffer, bytesToRead);
+            dest.write(buffer, source.gcount());
+            size -= source.gcount();
+        }
+
+        delete[] buffer;
+        
+        return !source.fail() && !dest.fail();
+    }
+
 private:
     // 私有函数，转换过程中需要递归处理子节点
     static void xml_to_json_recursive(Value& json, xml_node<>* node, Document::AllocatorType& allocator) {

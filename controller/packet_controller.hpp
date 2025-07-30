@@ -26,6 +26,10 @@ public:
         __server.Post("/api/getPacketDetail", [this](const httplib::Request& req, httplib::Response& res) {
             getPacketDetail(req, res);
         });
+
+        __server.Post("/api/savePacket", [this](const httplib::Request& req, httplib::Response& res) {
+            savePacket(req, res);
+        });
     }
 
 
@@ -114,6 +118,43 @@ public:
             __tsharkManager->getPacketDetailInfo(frameNumber, dataDoc);
 
             sendJsonResponse(res, dataDoc);
+        }
+        catch (const std::exception& e) {
+            // 如果发生异常，返回错误响应
+            sendErrorResponse(res, ERROR_PARAMETER_WRONG);
+        }
+    }
+
+    // 保存当前数据包
+    void savePacket(const httplib::Request& req, httplib::Response& res) {
+
+        try {
+
+            if (req.body.empty()) {
+                return sendErrorResponse(res, ERROR_PARAMETER_WRONG);
+            }
+
+            // 使用 RapidJSON 解析 JSON
+            rapidjson::Document doc;
+            if (doc.Parse(req.body.c_str()).HasParseError()) {
+                return sendErrorResponse(res, ERROR_PARAMETER_WRONG);
+            }
+
+            // 提取保存路径和过滤器
+            std::string savePath;
+            if (doc.HasMember("savePath") && doc["savePath"].IsString()) {
+                savePath = doc["savePath"].GetString();
+            }
+            if (savePath.empty()) {
+                return sendErrorResponse(res, ERROR_PARAMETER_WRONG);
+            }
+
+            if (__tsharkManager->savePacket(savePath)) {
+                sendSuccessResponse(res);
+            }
+            else {
+                sendErrorResponse(res, ERROR_FILE_SAVE_FAILED);
+            }
         }
         catch (const std::exception& e) {
             // 如果发生异常，返回错误响应

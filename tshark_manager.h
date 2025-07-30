@@ -77,6 +77,9 @@ public:
     // 获取数据包详细信息
     bool getPacketDetailInfo(uint32_t frameNumber, rapidjson::Document& detailJson);
 
+    // 保存当前数据包
+    bool savePacket(std::string savePath);
+
     void printAllSessions();
     
     // -----------------------------数据查询相关接口-----------------------------------
