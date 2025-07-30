@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.30)
-project(tsharkwithui)
+project(easytshark-server)
 
 # 添加调试信息
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
