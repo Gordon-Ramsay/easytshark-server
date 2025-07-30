@@ -22,14 +22,10 @@ std::map<uint8_t, std::string> ipProtoMap = {
 
 TsharkManager::TsharkManager(std::string workDir) {
     this->workDir = workDir;
-    this->tsharkPath = "F:/Wireshark/tshark.exe";
-    this->editcapPath = "F:/Wireshark/editcap.exe";
-    std::string xdbPath = workDir + "/third_library/ip2region/ip2region.xdb";
-    std::string dbName = workDir + "/mytshark.db";
-    LOG_F(INFO, "TsharkManager initialized with workDir: %s", workDir.c_str());
-    LOG_F(INFO, "Using xdbPath: %s", xdbPath.c_str());
-    LOG_F(INFO, "Using dbName: %s", dbName.c_str());
-    storage = std::make_shared<TsharkDatabase>(dbName);
+    this->tsharkPath = workDir + "/tshark/bin/tshark.exe";
+    this->editcapPath = workDir + "/tshark/bin/editcap.exe";
+    std::string xdbPath = workDir + "ip2region.xdb";
+    storage = std::make_shared<TsharkDatabase>(this->workDir + "/mytshark.db");
     IP2RegionUtil::init(xdbPath);
 }
 

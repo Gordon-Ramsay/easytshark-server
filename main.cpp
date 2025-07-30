@@ -9,6 +9,7 @@
 #include "controller/session_controller.hpp"
 #include "controller/stats_controller.hpp"
 #include "controller/region_controller.hpp"
+#include "utils/process_util.h"
 
 std::shared_ptr<TsharkManager> g_ptrTsharkManager;
 
@@ -57,8 +58,35 @@ int main(int argc, char* argv[]) {
 
     InitLog(argc, argv);
 
-    g_ptrTsharkManager = std::make_shared<TsharkManager>("F:/cppProject/tsharkwithui");
-    g_ptrTsharkManager->analysisFile("F:/cppProject/tsharkwithui/build/capture.pcap");
+    // 提取UI进程参数
+    std::string paramName = "--uipid=";
+    if (argc < 2 || strstr(argv[1], paramName.c_str()) == nullptr) {
+        LOG_F(ERROR, "usage: tshark_server --uipid=xxx");
+        return -1;
+    }
+
+    std::string pidParam = argv[1];
+    auto pos1 = pidParam.find(paramName) + paramName.size();
+    auto pos2 = pidParam.find(" ", pos1);
+    PID_T pid = std::stoi(pidParam.substr(pos1, pos2));
+    if (!ProcessUtil::isProcessRunning(pid)) {
+        LOG_F(ERROR, "UI进程不存在，tshark_server将退出");
+        return -1;
+    }
+
+    // 启动UI监控线程
+    std::thread uiMonitorThread([&]() {
+            while (true) {
+                if (!ProcessUtil::isProcessRunning(pid)) {
+                    LOG_F(INFO, "检测到UI进程已退出");
+                    return;
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(5));
+            }
+        });
+
+    std::string currentExePath = ProcessUtil::getExecutableDir();
+    g_ptrTsharkManager = std::make_shared<TsharkManager>(currentExePath);
 
     // 创建一个 HTTP 服务器对象
     httplib::Server server;
@@ -87,7 +115,22 @@ int main(int argc, char* argv[]) {
         controller->registerRoute();
     }
 
-    // 启动服务器，监听 8080 端口
-    server.listen("127.0.0.1", 8080);
+    // 在另一个线程中启动HTTP服务
+    std::thread serverThread([&]() {
+        LOG_F(INFO, "tshark_server is running on http://127.0.0.1:9122");
+        server.listen("127.0.0.1", 9122);
+        });
+
+
+    // 等待UI进程退出
+    uiMonitorThread.join();
+
+    // UI进程退出后，HTTP服务即关闭
+    server.stop();
+    serverThread.join();
+
+    // 如果还在抓包或者监控网卡流量，将其关闭
+    g_ptrTsharkManager->reset();
+
     return 0;
 }

@@ -118,6 +118,64 @@ FILE* ProcessUtil::PopenEx(std::string command, PID_T* pidOut) {
 }
 #endif
 
+    std::string ProcessUtil::getExecutablePath() {
+#if defined(_WIN32)
+        char buffer[MAX_PATH];
+        DWORD length = GetModuleFileNameA(NULL, buffer, MAX_PATH);
+        return std::string(buffer, length);
+#elif defined(__APPLE__)
+        char buffer[PATH_MAX];
+        uint32_t size = sizeof(buffer);
+        if (_NSGetExecutablePath(buffer, &size) == 0)
+            return std::string(buffer);
+        else {
+            // 分配足够大小的缓冲区
+            char* buf = new char[size];
+            _NSGetExecutablePath(buf, &size);
+            std::string path(buf);
+            delete[] buf;
+            return path;
+        }
+#elif defined(__linux__)
+        char buffer[PATH_MAX];
+        ssize_t length = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
+        if (length != -1) {
+            buffer[length] = '\0'; // 添加结束符
+            return std::string(buffer);
+        }
+        return std::string();
+#endif
+    }
+
+    std::string ProcessUtil::getExecutableDir() {
+        std::string fullPath = getExecutablePath();
+        // 查找最后一个斜杠或反斜杠的位置
+        size_t pos = fullPath.find_last_of("/\\");
+        if (pos != std::string::npos)
+            return fullPath.substr(0, pos + 1);
+        return std::string();
+    }
+
+    bool ProcessUtil::isProcessRunning(PID_T pid) {
+#ifdef _WIN32
+        HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+        if (process == NULL) {
+            return false;
+        }
+        DWORD exitCode;
+        if (GetExitCodeProcess(process, &exitCode)) {
+            CloseHandle(process);
+            return (exitCode == STILL_ACTIVE);
+        }
+        CloseHandle(process);
+        return false;
+#else
+        // On Unix-like systems, sending signal 0 to a process checks if it exists
+        int ret = kill(pid, 0);
+        return (ret == 0);
+#endif
+    }
+
 #ifdef _WIN32
 int ProcessUtil::Kill(PID_T pid) {
 

@@ -18,4 +18,7 @@ public:
     static FILE* PopenEx(std::string command, PID_T* pidOut = nullptr);
     static int Kill(PID_T pid);
     static bool Exec(std::string cmdline);
+    static std::string getExecutablePath();
+    static std::string getExecutableDir();
+    static bool isProcessRunning(PID_T pid);
 };
